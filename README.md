@@ -30,8 +30,68 @@ AI Portfolio Builder is an AI-powered platform that helps developers, designers,
 
 ## 📦 Installation
 
+### Prerequisites
+
+- Node.js 18+ installed
+- PostgreSQL database (local or remote)
+- GitHub OAuth App credentials
+- Google Gemini API key
+
+### Setup Steps
+
+1. **Clone the repository**
 ```bash
 git clone https://github.com/your-username/ai-portfolio-builder.git
 cd ai-portfolio-builder
+```
+
+2. **Install dependencies**
+```bash
 npm install
+```
+
+3. **Set up environment variables**
+
+Create a `.env` file in the root directory with the following variables:
+
+```env
+# Database
+DATABASE_URL="postgresql://username:password@localhost:5432/portfolio_db?schema=public"
+
+# NextAuth
+NEXTAUTH_SECRET="your-secret-key-here"
+NEXTAUTH_URL="http://localhost:3000"
+
+# GitHub OAuth
+GITHUB_CLIENT_ID="your-github-client-id"
+GITHUB_CLIENT_SECRET="your-github-client-secret"
+
+# Google Gemini API
+NEXT_PUBLIC_GEMINI_API_KEY="your-gemini-api-key"
+```
+
+📖 **Need help getting these keys?** See the detailed step-by-step guide in [ENV_SETUP_GUIDE.md](./ENV_SETUP_GUIDE.md)
+
+4. **Generate Prisma Client**
+```bash
+npx prisma generate
+```
+
+5. **Run database migrations** (if needed)
+```bash
+npx prisma migrate dev
+```
+
+6. **Start the development server**
+```bash
 npm run dev
+```
+
+The application will be available at `http://localhost:3000`
+
+### Important Notes
+
+- Make sure to run `npx prisma generate` before starting the dev server
+- Ensure your PostgreSQL database is running and accessible
+- For GitHub OAuth, create an OAuth App at https://github.com/settings/developers
+- Get your Gemini API key from https://makersuite.google.com/app/apikey

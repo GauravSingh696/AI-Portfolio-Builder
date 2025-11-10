@@ -107,7 +107,7 @@ export function Footer() {
                   key={index}
                   href={link.href}
                   aria-label={link.label}
-                  className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-muted-foreground transition-colors hover:bg-muted/80 hover:text-primary"
+                  className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-muted-foreground transition-colors hover:bg-muted/80 hover:text-primary cursor-pointer"
                 >
                   <link.icon className="h-4 w-4" />
                 </Link>
@@ -123,7 +123,7 @@ export function Footer() {
                   <li key={linkIndex}>
                     <Link
                       href={link.href}
-                      className="text-sm text-muted-foreground hover:text-primary"
+                      className="text-sm text-muted-foreground hover:text-primary cursor-pointer"
                     >
                       {link.label}
                     </Link>

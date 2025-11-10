@@ -57,7 +57,7 @@ export function Navbar({ session }: { session: Session | null }) {
               >
                 <Link
                   href={link.href}
-                  className="text-sm font-medium transition-colors hover:text-primary"
+                  className="text-sm font-medium transition-colors hover:text-primary cursor-pointer"
                 >
                   {link.label}
                 </Link>
@@ -125,7 +125,7 @@ export function Navbar({ session }: { session: Session | null }) {
                       <Link
                         key={link.href}
                         href={link.href}
-                        className="text-base font-medium transition-colors hover:text-primary"
+                        className="text-base font-medium transition-colors hover:text-primary cursor-pointer"
                         onClick={() => setMobileMenuOpen(false)}
                       >
                         {link.label}

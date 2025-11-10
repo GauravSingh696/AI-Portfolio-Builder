@@ -21,6 +21,9 @@ import {
   PaintBucket,
   Check,
   CloudLightningIcon,
+  Code,
+  Copy,
+  Loader2,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -223,6 +226,8 @@ export default function PortfolioCustomizer() {
   const [isPublishing, setIsPublishing] = useState(false)
   const [publishSuccess, setPublishSuccess] = useState(false)
   const [publishedUrl, setPublishedUrl] = useState("")
+  const [codeCopied, setCodeCopied] = useState(false)
+  const [isCopyingCode, setIsCopyingCode] = useState(false)
 
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const contentEditableRef = useRef<boolean>(false)
@@ -939,6 +944,35 @@ export default function PortfolioCustomizer() {
     }
   }
 
+  const copyPortfolioCode = async () => {
+    if (!portfolioHTML) {
+      toast.error("No portfolio code available")
+      return
+    }
+
+    setIsCopyingCode(true)
+    try {
+      // Get the complete HTML code (includes CSS and JS if embedded)
+      const fullCode = portfolioHTML
+      
+      // Copy to clipboard
+      await navigator.clipboard.writeText(fullCode)
+      
+      setCodeCopied(true)
+      toast.success("Portfolio code copied to clipboard!")
+      
+      // Reset after 5 seconds
+      setTimeout(() => {
+        setCodeCopied(false)
+      }, 5000)
+    } catch (error) {
+      console.error("Error copying code:", error)
+      toast.error("Failed to copy code. Please try again.")
+    } finally {
+      setIsCopyingCode(false)
+    }
+  }
+
   return (
     <SidebarProvider>
       <div className="flex h-screen w-full flex-col overflow-hidden bg-background">
@@ -1043,20 +1077,61 @@ export default function PortfolioCustomizer() {
             </div>
             <Button
               onClick={savePortfolio}
-              disabled={isSaving}
+              disabled={isSaving || isPublishing || isCopyingCode}
               className="bg-gradient-to-r from-violet-500 to-indigo-600 text-white"
             >
-              {isSaving ? "Saving..." : "Save Changes"}
-              <Save className="ml-2 h-4 w-4" />
+              {isSaving ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  Save Changes
+                  <Save className="ml-2 h-4 w-4" />
+                </>
+              )}
+            </Button>
+
+            <Button
+              onClick={copyPortfolioCode}
+              disabled={isSaving || isPublishing || isCopyingCode}
+              className="bg-gradient-to-r from-blue-500 to-cyan-600 text-white"
+            >
+              {isCopyingCode ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Copying...
+                </>
+              ) : codeCopied ? (
+                <>
+                  <Check className="mr-2 h-4 w-4" />
+                  Copied
+                </>
+              ) : (
+                <>
+                  Code
+                  <Code className="ml-2 h-4 w-4" />
+                </>
+              )}
             </Button>
 
             <Button
               onClick={handlePublishToCloud}
-              disabled={isSaving}
+              disabled={isSaving || isPublishing || isCopyingCode}
               className="bg-gradient-to-r from-violet-800 to-indigo-400 text-white"
             >
-              Publish on Cloud
-              <CloudLightningIcon className="ml-2 h-4 w-4" />
+              {isPublishing ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Publishing...
+                </>
+              ) : (
+                <>
+                  Publish on Cloud
+                  <CloudLightningIcon className="ml-2 h-4 w-4" />
+                </>
+              )}
             </Button>
           </div>
         </header>

@@ -415,27 +415,70 @@ Edit
 
     console.log('Calling Gemini API...');
 
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text().trim(); // Extract AI-generated HTML
+    // Add retry logic for network errors
+    let retries = 3
+    let lastError: Error | null = null
+    
+    while (retries > 0) {
+      try {
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        const text = response.text().trim(); // Extract AI-generated HTML
+        
+        // If successful, break out of retry loop
+        if (text) {
+          const updatedUser = await prisma.user.update({
+            where: {
+              id: session.user.id
+            },
+            data: {
+              htmlFiles: text.toString()
+            }
+          })
 
-
-    const updatedUser = await prisma.user.update({
-      where: {
-        id: session.user.id
-      },
-      data: {
-        htmlFiles: text.toString()
+          console.log("UPDATED USER", updatedUser)
+          return text;
+        }
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error))
+        console.error(`Gemini API attempt failed (${4 - retries}/3):`, lastError.message)
+        retries--
+        
+        if (retries > 0) {
+          // Wait before retrying (exponential backoff)
+          await new Promise(resolve => setTimeout(resolve, 1000 * (4 - retries)))
+        } else {
+          // All retries failed, throw error with better message
+          const errorMessage = lastError.message
+          if (errorMessage.includes('fetch failed') || errorMessage.includes('network')) {
+            throw new Error('Network error: Please check your internet connection and try again. If the problem persists, the API service may be temporarily unavailable.')
+          } else if (errorMessage.includes('API key') || errorMessage.includes('authentication')) {
+            throw new Error('API authentication error: Please check your Gemini API key configuration.')
+          } else if (errorMessage.includes('quota') || errorMessage.includes('rate limit')) {
+            throw new Error('API quota exceeded: Please try again later or check your API usage limits.')
+          }
+          throw lastError
+        }
       }
-    })
-
-    console.log("UPDATED USER",updatedUser)
-
-    return text;
+    }
+    
+    // If all retries failed, throw the last error
+    throw lastError || new Error('Failed to generate portfolio after multiple attempts')
 
   } catch (error) {
     console.error("Error generating portfolio:", error);
-    throw new Error(error instanceof Error ? error.message : 'An error occurred while generating portfolio');
+    const errorMessage = error instanceof Error ? error.message : 'An error occurred while generating portfolio'
+    
+    // Provide more helpful error messages
+    if (errorMessage.includes('fetch failed') || errorMessage.includes('network')) {
+      throw new Error('Network error: Please check your internet connection and try again. If the problem persists, the API service may be temporarily unavailable.')
+    } else if (errorMessage.includes('API key') || errorMessage.includes('authentication')) {
+      throw new Error('API authentication error: Please check your Gemini API key configuration.')
+    } else if (errorMessage.includes('quota') || errorMessage.includes('rate limit')) {
+      throw new Error('API quota exceeded: Please try again later or check your API usage limits.')
+    }
+    
+    throw new Error(errorMessage);
   }
 }
 

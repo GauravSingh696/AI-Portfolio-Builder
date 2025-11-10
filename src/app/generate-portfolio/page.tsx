@@ -16,6 +16,7 @@ import {
   Sparkles,
   AlertCircle,
   FileIcon as FileWord,
+  X,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -68,6 +69,10 @@ export default function ResumeExtractor() {
   const [copied, setCopied] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [pdfJsLoaded, setPdfJsLoaded] = useState(false)
+  const [showFormatted, setShowFormatted] = useState(false)
+  const [originalText, setOriginalText] = useState("")
+  const [formattedData, setFormattedData] = useState<string>("")
+  const [showExtractedSection, setShowExtractedSection] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 const router  = useRouter()
   useEffect(() => {
@@ -134,6 +139,10 @@ const router  = useRouter()
     setIsComplete(false)
     setError(null)
     setText("")
+    setOriginalText("")
+    setShowFormatted(false)
+    setFormattedData("")
+    setShowExtractedSection(false)
 
     try {
       const detectedType = detectFileType(file)
@@ -187,6 +196,8 @@ const router  = useRouter()
               }
 
               setText(extractedText)
+              setOriginalText(extractedText)
+              setShowFormatted(false)
               console.log("Extracted resume text:", extractedText)
               setIsExtracting(false)
               setIsComplete(true)
@@ -224,6 +235,8 @@ const router  = useRouter()
           try {
             const content = e.target?.result as string
             setText(content)
+            setOriginalText(content)
+            setShowFormatted(false)
             console.log("Extracted resume text:", content)
 
             setIsExtracting(false)
@@ -293,10 +306,261 @@ const router  = useRouter()
     document.body.removeChild(element)
   }
 
+  // Convert extracted text to dictionary format
+  const convertToDictionaryFormat = (extractedText: string): string => {
+    const lines = extractedText.split('\n').filter(line => line.trim())
+    const dictionary: Record<string, any> = {
+      personal_info: {
+        name: '',
+        email: '',
+        phone: '',
+        city: ''
+      },
+      educations: [],
+      projects_experiences: [],
+      achievements: [],
+      interest_skills: [],
+      website_links: []
+    }
+
+    // Email regex pattern
+    const emailRegex = /([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9_-]+)/gi
+    // Phone regex pattern (supports various formats)
+    const phoneRegex = /(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}|\d{10}/g
+    // URL regex pattern
+    const urlRegex = /(https?:\/\/[^\s]+|www\.[^\s]+|[a-zA-Z0-9-]+\.[a-zA-Z]{2,}(?:\/[^\s]*)?)/gi
+    // Location patterns
+    const locationKeywords = ['location', 'address', 'city', 'state', 'country', 'based in', 'residing in']
+    
+    let currentSection = 'other'
+    let foundPersonalInfo = false
+    
+    lines.forEach((line, index) => {
+      const trimmedLine = line.trim()
+      const lowerLine = trimmedLine.toLowerCase()
+      
+      // Extract email
+      const emailMatch = trimmedLine.match(emailRegex)
+      if (emailMatch && !dictionary.personal_info.email) {
+        dictionary.personal_info.email = emailMatch[0]
+        foundPersonalInfo = true
+      }
+      
+      // Extract phone
+      const phoneMatch = trimmedLine.match(phoneRegex)
+      if (phoneMatch && !dictionary.personal_info.phone) {
+        dictionary.personal_info.phone = phoneMatch[0]
+        foundPersonalInfo = true
+      }
+      
+      // Extract URLs/website links
+      const urlMatch = trimmedLine.match(urlRegex)
+      if (urlMatch) {
+        urlMatch.forEach(url => {
+          const cleanUrl = url.trim()
+          if (cleanUrl && !dictionary.website_links.includes(cleanUrl)) {
+            dictionary.website_links.push(cleanUrl)
+          }
+        })
+      }
+      
+      // Extract name (usually first line or line with "name" keyword)
+      if ((index === 0 || lowerLine.includes('name')) && !dictionary.personal_info.name) {
+        if (lowerLine.includes('name')) {
+          const namePart = trimmedLine.split(':')[1]?.trim() || trimmedLine.replace(/name/gi, '').trim()
+          if (namePart && namePart.length > 2 && !emailMatch && !phoneMatch) {
+            dictionary.personal_info.name = namePart
+            foundPersonalInfo = true
+          }
+        } else if (index === 0 && trimmedLine.length > 2 && !emailMatch && !phoneMatch && !urlMatch) {
+          dictionary.personal_info.name = trimmedLine
+          foundPersonalInfo = true
+        }
+      }
+      
+      // Extract city/location
+      if (locationKeywords.some(keyword => lowerLine.includes(keyword)) && !dictionary.personal_info.city) {
+        const locationPart = trimmedLine.split(':')[1]?.trim() || trimmedLine
+        // Try to extract city name (simple heuristic)
+        const cityMatch = locationPart.match(/\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\b/)
+        if (cityMatch && locationPart.length > 2 && locationPart.length < 50) {
+          dictionary.personal_info.city = locationPart
+          foundPersonalInfo = true
+        }
+      }
+      
+      // Detect section headers
+      if (lowerLine.includes('education') || lowerLine.includes('qualification') || lowerLine.includes('academic') || lowerLine.includes('degree')) {
+        currentSection = 'education'
+      } else if (lowerLine.includes('experience') || lowerLine.includes('work') || lowerLine.includes('employment') || lowerLine.includes('professional') || lowerLine.includes('project')) {
+        currentSection = 'project_experience'
+      } else if (lowerLine.includes('achievement') || lowerLine.includes('award') || lowerLine.includes('recognition') || lowerLine.includes('honor')) {
+        currentSection = 'achievement'
+      } else if (lowerLine.includes('skill') || lowerLine.includes('technical') || lowerLine.includes('competenc') || lowerLine.includes('interest') || lowerLine.includes('hobby')) {
+        currentSection = 'skill_interest'
+      } else if (trimmedLine && !emailMatch && !phoneMatch && !urlMatch) {
+        // Add to current section if it's not already personal info
+        if (currentSection !== 'other' || !foundPersonalInfo || index > 5) {
+          if (currentSection === 'education') {
+            if (!dictionary.educations.includes(trimmedLine)) {
+              dictionary.educations.push(trimmedLine)
+            }
+          } else if (currentSection === 'project_experience') {
+            if (!dictionary.projects_experiences.includes(trimmedLine)) {
+              dictionary.projects_experiences.push(trimmedLine)
+            }
+          } else if (currentSection === 'achievement') {
+            if (!dictionary.achievements.includes(trimmedLine)) {
+              dictionary.achievements.push(trimmedLine)
+            }
+          } else if (currentSection === 'skill_interest') {
+            if (!dictionary.interest_skills.includes(trimmedLine)) {
+              dictionary.interest_skills.push(trimmedLine)
+            }
+          }
+        }
+      }
+    })
+
+    // Format output in the desired format
+    let output = ''
+    
+    // Personal info section
+    const hasPersonalInfo = dictionary.personal_info.name || dictionary.personal_info.email || 
+                           dictionary.personal_info.phone || dictionary.personal_info.city
+    if (hasPersonalInfo) {
+      output += 'personal_info:\n\n'
+      if (dictionary.personal_info.name) {
+        output += `name = ${dictionary.personal_info.name}\n`
+      }
+      if (dictionary.personal_info.email) {
+        output += `email = ${dictionary.personal_info.email}\n`
+      }
+      if (dictionary.personal_info.phone) {
+        output += `phone = ${dictionary.personal_info.phone}\n`
+      }
+      if (dictionary.personal_info.city) {
+        output += `city = ${dictionary.personal_info.city}\n`
+      }
+      output += '\n'
+    }
+    
+    // Educations section
+    if (dictionary.educations.length > 0) {
+      output += 'educations:\n'
+      dictionary.educations.forEach(edu => {
+        output += `${edu}\n`
+      })
+      output += '\n'
+    }
+    
+    // Projects/Experiences section
+    if (dictionary.projects_experiences.length > 0) {
+      output += 'projects/experiences:\n'
+      dictionary.projects_experiences.forEach(proj => {
+        output += `${proj}\n`
+      })
+      output += '\n'
+    }
+    
+    // Achievements section
+    if (dictionary.achievements.length > 0) {
+      output += 'achievements:\n'
+      dictionary.achievements.forEach(ach => {
+        output += `${ach}\n`
+      })
+      output += '\n'
+    }
+    
+    // Interest/Skills section
+    if (dictionary.interest_skills.length > 0) {
+      output += 'interest/skills:\n'
+      dictionary.interest_skills.forEach(skill => {
+        output += `${skill}\n`
+      })
+      output += '\n'
+    }
+    
+    // Website links section
+    if (dictionary.website_links.length > 0) {
+      output += 'website links:\n'
+      dictionary.website_links.forEach(link => {
+        output += `${link}\n`
+      })
+      output += '\n'
+    }
+
+    return output.trim()
+  }
+
+  const showExtractedInfo = () => {
+    if (!originalText) return
+    
+    const formattedText = convertToDictionaryFormat(originalText)
+    setFormattedData(formattedText)
+    setShowExtractedSection(true)
+    
+    // Scroll to the extracted info section
+    setTimeout(() => {
+      const element = document.getElementById('extracted-info-section')
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }
+    }, 100)
+    
+    toast.success("Formatted extracted information displayed!")
+  }
+
+  const downloadDictionaryFormat = () => {
+    if (!originalText) return
+    
+    const dictText = convertToDictionaryFormat(originalText)
+    const element = document.createElement("a")
+    const file = new Blob([dictText], { type: "text/plain" })
+    element.href = URL.createObjectURL(file)
+    element.download = `${fileName.replace(/\.[^/.]+$/, "")}_resume_details.txt`
+    document.body.appendChild(element)
+    element.click()
+    document.body.removeChild(element)
+    toast.success("Resume details downloaded as dictionary format!")
+  }
+
+  // Parse formatted data into structured sections
+  const parseFormattedData = (data: string) => {
+    const sections: Record<string, string[]> = {}
+    const lines = data.split('\n')
+    let currentSection = ''
+    
+    lines.forEach(line => {
+      const trimmed = line.trim()
+      if (!trimmed) return
+      
+      // Check if it's a section header
+      if (trimmed.endsWith(':') && !trimmed.includes('=')) {
+        currentSection = trimmed.replace(':', '').trim()
+        sections[currentSection] = []
+      } else if (currentSection && trimmed.includes('=')) {
+        // Personal info fields
+        const [key, ...valueParts] = trimmed.split('=')
+        const value = valueParts.join('=').trim()
+        if (value) {
+          sections[currentSection].push(`${key.trim()} = ${value}`)
+        }
+      } else if (currentSection && trimmed) {
+        // Regular content lines
+        sections[currentSection].push(trimmed)
+      }
+    })
+    
+    return sections
+  }
+
 const handleGeneratePortfolio = async () => {
   try {
     setLoading(true)
-    const res = await generatePortfolio(text);
+    // Use original text for portfolio generation, not the formatted version
+    const textToUse = originalText || text
+    const res = await generatePortfolio(textToUse);
     console.log("response", res);
 
     if(res.success) {
@@ -459,7 +723,7 @@ const handleGeneratePortfolio = async () => {
                           className={`flex items-center gap-2 bg-gradient-to-r from-violet-500 to-indigo-600 text-white ${
                           loading ? "opacity-50 cursor-not-allowed" : ""
                           }`}
-                          disabled={loading}
+                          disabled={loading || isExtracting}
                         >
                           {loading ? (
                           <div className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
@@ -469,20 +733,41 @@ const handleGeneratePortfolio = async () => {
                           {loading ? "Generating..." : "Generate My Portfolio"}
                         </Button>
                         <div className="flex gap-4">
-                          <Button variant="outline" onClick={triggerFileInput} className="flex items-center gap-2">
-                            <Upload className="h-4 w-4" />
-                            Upload another file
+                          <Button 
+                            variant="outline" 
+                            onClick={triggerFileInput} 
+                            className="flex items-center gap-2"
+                            disabled={isUploading || isExtracting || loading}
+                          >
+                            {isUploading || isExtracting ? (
+                              <>
+                                <div className="h-4 w-4 rounded-full border-2 border-current border-t-transparent animate-spin" />
+                                Processing...
+                              </>
+                            ) : (
+                              <>
+                                <Upload className="h-4 w-4" />
+                                Upload another file
+                              </>
+                            )}
                           </Button>
                           <Button
-                            onClick={() => {
-                              const extractedTab = document.querySelector('[data-value="extracted"]') as HTMLElement | null;
-                              extractedTab?.click();
-                            }}
+                            onClick={showExtractedInfo}
                             className="flex items-center gap-2"
                             variant="outline"
+                            disabled={!text || isExtracting}
                           >
-                            View extracted info
-                            <ArrowRight className="h-4 w-4" />
+                            {isExtracting ? (
+                              <>
+                                <div className="h-4 w-4 rounded-full border-2 border-current border-t-transparent animate-spin" />
+                                Extracting...
+                              </>
+                            ) : (
+                              <>
+                                <FileText className="h-4 w-4" />
+                                Extracted Info
+                              </>
+                            )}
                           </Button>
                         </div>
                       </div>
@@ -560,21 +845,63 @@ const handleGeneratePortfolio = async () => {
                         variant="outline"
                         size="sm"
                         onClick={copyToClipboard}
-                        disabled={!text}
+                        disabled={!text || isExtracting}
                         className="flex items-center gap-1.5"
                       >
-                        {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                        {copied ? "Copied" : "Copy"}
+                        {isExtracting ? (
+                          <>
+                            <div className="h-4 w-4 rounded-full border-2 border-current border-t-transparent animate-spin" />
+                            Extracting...
+                          </>
+                        ) : copied ? (
+                          <>
+                            <Check className="h-4 w-4" />
+                            Copied
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="h-4 w-4" />
+                            Copy
+                          </>
+                        )}
                       </Button>
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={downloadText}
-                        disabled={!text}
+                        onClick={showExtractedInfo}
+                        disabled={!text || isExtracting}
                         className="flex items-center gap-1.5"
                       >
-                        <Download className="h-4 w-4" />
-                        Download
+                        {isExtracting ? (
+                          <>
+                            <div className="h-4 w-4 rounded-full border-2 border-current border-t-transparent animate-spin" />
+                            Extracting...
+                          </>
+                        ) : (
+                          <>
+                            <FileText className="h-4 w-4" />
+                            Extracted Info
+                          </>
+                        )}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={downloadDictionaryFormat}
+                        disabled={!text || isExtracting}
+                        className="flex items-center gap-1.5"
+                      >
+                        {isExtracting ? (
+                          <>
+                            <div className="h-4 w-4 rounded-full border-2 border-current border-t-transparent animate-spin" />
+                            Extracting...
+                          </>
+                        ) : (
+                          <>
+                            <Download className="h-4 w-4" />
+                            Download
+                          </>
+                        )}
                       </Button>
                     </div>
                   </div>
@@ -582,9 +909,35 @@ const handleGeneratePortfolio = async () => {
                   <div className="relative min-h-[400px] rounded-lg border bg-background/50">
                     {text ? (
                       <>
+                        <div className="mb-2 flex items-center justify-between px-4 pt-4">
+                          <div className="flex items-center gap-2">
+                            {showFormatted && (
+                              <span className="text-xs text-muted-foreground">Formatted View</span>
+                            )}
+                            {showFormatted && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setText(originalText)
+                                  setShowFormatted(false)
+                                }}
+                                className="h-6 text-xs"
+                              >
+                                Show Raw Text
+                              </Button>
+                            )}
+                          </div>
+                        </div>
                         <Textarea
                           value={text}
-                          onChange={(e) => setText(e.target.value)}
+                          onChange={(e) => {
+                            setText(e.target.value)
+                            if (!showFormatted) {
+                              setOriginalText(e.target.value)
+                            }
+                          }}
+                          readOnly={showFormatted}
                           className="min-h-[400px] resize-none font-mono text-sm"
                         />
                         {isComplete && (
@@ -592,9 +945,19 @@ const handleGeneratePortfolio = async () => {
                             <Button
                               onClick={handleGeneratePortfolio}
                               className="flex items-center gap-2 bg-gradient-to-r from-violet-500 to-indigo-600 text-white"
+                              disabled={loading}
                             >
-                              <Sparkles className="h-4 w-4" />
-                              Generate My Portfolio
+                              {loading ? (
+                                <>
+                                  <div className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                                  Generating...
+                                </>
+                              ) : (
+                                <>
+                                  <Sparkles className="h-4 w-4" />
+                                  Generate My Portfolio
+                                </>
+                              )}
                             </Button>
                           </div>
                         )}
@@ -620,6 +983,100 @@ const handleGeneratePortfolio = async () => {
               </TabsContent>
             </Tabs>
           </motion.div>
+
+          {/* Extracted Info Section */}
+          {showExtractedSection && formattedData && (
+            <motion.div
+              id="extracted-info-section"
+              variants={itemVariants}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mt-12 w-full"
+            >
+              <div className="rounded-xl border bg-card p-6 shadow-lg">
+                <div className="mb-6 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-violet-500/20">
+                      <FileText className="h-5 w-5 text-violet-500" />
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-bold">Extracted Resume Information</h2>
+                      <p className="text-sm text-muted-foreground">Formatted data from your resume</p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowExtractedSection(false)}
+                    className="h-8 w-8 p-0"
+                  >
+                    <X className="h-4 w-4" />
+                    <span className="sr-only">Close</span>
+                  </Button>
+                </div>
+
+                <div className="space-y-6">
+                  {Object.entries(parseFormattedData(formattedData)).map(([sectionName, items]) => {
+                    if (items.length === 0) return null
+
+                    return (
+                      <div key={sectionName} className="rounded-lg border bg-background/50 p-4">
+                        <h3 className="mb-3 text-lg font-semibold capitalize text-violet-500">
+                          {sectionName.replace(/_/g, ' ')}
+                        </h3>
+                        <div className="space-y-2">
+                          {items.map((item, index) => {
+                            if (item.includes('=')) {
+                              const [key, value] = item.split('=').map(s => s.trim())
+                              return (
+                                <div key={index} className="flex items-start gap-3 py-1">
+                                  <span className="min-w-[100px] font-medium text-muted-foreground capitalize">
+                                    {key}:
+                                  </span>
+                                  <span className="flex-1 text-foreground">{value}</span>
+                                </div>
+                              )
+                            }
+                            return (
+                              <div key={index} className="py-1 text-foreground">
+                                <span className="before:content-['•'] before:mr-2 before:text-violet-500">
+                                  {item}
+                                </span>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+
+                <div className="mt-6 flex justify-end gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      navigator.clipboard.writeText(formattedData)
+                      toast.success("Copied to clipboard!")
+                    }}
+                    className="flex items-center gap-2"
+                  >
+                    <Copy className="h-4 w-4" />
+                    Copy
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={downloadDictionaryFormat}
+                    className="flex items-center gap-2"
+                  >
+                    <Download className="h-4 w-4" />
+                    Download
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
+          )}
 
           {/* Footer */}
           <motion.div variants={itemVariants} className="mt-auto text-center text-sm text-muted-foreground">
