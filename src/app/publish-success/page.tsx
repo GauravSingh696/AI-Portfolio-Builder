@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { Check, Copy, ExternalLink } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -11,6 +11,16 @@ export default function PublishSuccessPage() {
   const router = useRouter()
   const url = searchParams.get("url")
   const [copied, setCopied] = useState(false)
+  const [origin, setOrigin] = useState("")
+
+  const fullUrl = useMemo(() => {
+    if (!url) return ""
+    if (url.startsWith("http://") || url.startsWith("https://")) {
+      return url
+    }
+    if (!origin) return ""
+    return `${origin}${url}`
+  }, [origin, url])
 
   useEffect(() => {
     if (!url) {
@@ -18,10 +28,15 @@ export default function PublishSuccessPage() {
     }
   }, [url, router])
 
-  const copyToClipboard = () => {
-    if (!url) return
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setOrigin(window.location.origin)
+    }
+  }, [])
 
-    const fullUrl = `${window.location.origin}${url}`
+  const copyToClipboard = () => {
+    if (!fullUrl) return
+
     navigator.clipboard
       .writeText(fullUrl)
       .then(() => {
@@ -36,8 +51,8 @@ export default function PublishSuccessPage() {
   }
 
   const visitPortfolio = () => {
-    if (!url) return
-    window.open(url, "_blank")
+    if (!fullUrl) return
+    window.open(fullUrl, "_blank")
   }
 
   if (!url) {
@@ -60,15 +75,21 @@ export default function PublishSuccessPage() {
 
         <div className="bg-muted p-4 rounded-md mb-6">
           <div className="flex items-center justify-between">
-            <code className="text-sm break-all">{`${window.location.origin}${url}`}</code>
-            <Button variant="ghost" size="icon" onClick={copyToClipboard} className="ml-2 flex-shrink-0">
+            <code className="text-sm break-all">{fullUrl || "Preparing link..."}</code>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={copyToClipboard}
+              className="ml-2 flex-shrink-0"
+              disabled={!fullUrl}
+            >
               {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
             </Button>
           </div>
         </div>
 
         <div className="flex flex-col space-y-3">
-          <Button onClick={visitPortfolio} className="w-full">
+          <Button onClick={visitPortfolio} className="w-full" disabled={!fullUrl}>
             Visit Your Portfolio
             <ExternalLink className="ml-2 h-4 w-4" />
           </Button>

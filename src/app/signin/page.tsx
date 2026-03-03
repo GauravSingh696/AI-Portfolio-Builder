@@ -9,7 +9,7 @@ const SigninPage = async () => {
   if (session?.user) {
     redirect('/dashboard');
   }
-  return(<div className="flex items-center justify-center h-screen w-screen">
+  return(<div className="flex items-center justify-center bg-blue-500 h-screen w-screen">
     <Signin />
   </div>) ;
 };

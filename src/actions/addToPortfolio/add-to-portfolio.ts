@@ -1,17 +1,41 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 'use server';
-import { GoogleGenerativeAI } from '@google/generative-ai'
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { Project } from "@/lib/types";
 
-if (!process.env.NEXT_PUBLIC_GEMINI_API_KEY) {
-    throw new Error("GEMINI_API_KEY is not defined in the environment variables.");
+if (!process.env.GROQ_API_KEY) {
+    throw new Error("GROQ_API_KEY is not defined in the environment variables.");
+}
+
+// Helper function to call Groq API
+async function callGroqAPI(messages: Array<{ role: string; content: string }>, temperature: number = 0.7) {
+  const apiKey = process.env.GROQ_API_KEY;
+  const baseUrl = process.env.GROQ_API_BASE_URL || 'https://api.groq.com/openai/v1';
+  const model = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile';
+
+  const response = await fetch(`${baseUrl}/chat/completions`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: model,
+      messages: messages,
+      temperature: temperature,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error?.message || `Groq API error: ${response.status} ${response.statusText}`);
   }
 
-const ai = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_GEMINI_API_KEY);
-const model = ai.getGenerativeModel({ model: "gemini-2.0-flash" });
+  const data = await response.json();
+  return data.choices[0]?.message?.content?.trim() || '';
+}
 
 
 export async function addToPortfolio(project : Project) {
@@ -101,9 +125,12 @@ export async function addToPortfolio(project : Project) {
     add this section to the html file. with details of ${project} and add it to the html file. and please don't update change anything previously in the html file. just add ${project } to the html file in projects section.
     `;
 
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const updatedHTML = response.text(); // Extract AI-generated HTML
+    const updatedHTML = await callGroqAPI([
+      {
+        role: 'user',
+        content: prompt,
+      },
+    ], 0.7); // Extract AI-generated HTML
     console.log("RESPONSED text", updatedHTML);
 
     // Store repositories in database

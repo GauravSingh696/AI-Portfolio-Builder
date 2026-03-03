@@ -25,6 +25,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { toast } from "sonner"
 import { generatePortfolio } from "@/actions/generate-portfolio"
+import { extractResumeWithGroq } from "@/actions/extract-resume"
 
 // Animation variants
 const containerVariants = {
@@ -58,6 +59,213 @@ declare global {
   }
 }
 
+type ResumeSectionKey = "objective" | "education" | "projectsExperiences" | "skills" | "achievements"
+
+type StructuredResumeSections = {
+  personalInformation: {
+    name: string
+    email: string
+    phone: string
+  }
+  objective: string[]
+  education: string[]
+  projectsExperiences: string[]
+  skills: string[]
+  achievements: string[]
+}
+
+type Template = {
+  id: string;
+  name: string;
+  image: string;
+}
+
+const SECTION_KEYWORDS: Record<ResumeSectionKey, string[]> = {
+  objective: ["objective", "career objective", "summary", "professional summary", "about", "profile summary", "goal"],
+  education: ["education", "academic", "academics", "qualification", "qualifications", "studies", "scholastic", "degree"],
+  projectsExperiences: [
+    "projects",
+    "project",
+    "experience",
+    "experiences",
+    "work experience",
+    "professional experience",
+    "employment history",
+    "career history",
+  ],
+  skills: ["skills", "technical skills", "skill set", "competencies", "technologies", "tools", "expertise", "strengths"],
+  achievements: ["achievements", "accomplishments", "awards", "honors", "recognitions", "certifications", "milestones"],
+}
+
+const EMAIL_REGEX = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i
+const PHONE_REGEX = /(\+?\d[\d\-\s()]{7,}\d)/i
+
+const sanitizeLine = (line: string) => line.replace(/^[\s•*\-\d.)]+/, "").trim()
+
+const isHeadingCandidate = (line: string) => {
+  const trimmed = line.trim()
+  if (!trimmed) return false
+  if (trimmed.endsWith(":")) return true
+  if (trimmed === trimmed.toUpperCase()) return true
+  const words = trimmed.split(/\s+/)
+  if (
+    words.length <= 4 &&
+    words.every((word) => {
+      const firstChar = word.charAt(0)
+      return firstChar ? /[A-Z]/.test(firstChar) : false
+    })
+  ) {
+    return true
+  }
+  return false
+}
+
+const detectSectionFromLine = (line: string): ResumeSectionKey | null => {
+  const normalized = line.toLowerCase()
+  for (const [section, keywords] of Object.entries(SECTION_KEYWORDS)) {
+    if (keywords.some((keyword) => normalized.includes(keyword))) {
+      return section as ResumeSectionKey
+    }
+  }
+  return null
+}
+
+const splitSkillsLine = (line: string) =>
+  line
+    .split(/[,|•;\/]/)
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+
+const formatEducationEntry = (line: string) => {
+  const years = line.match(/(19|20)\d{2}/g)
+  if (years && years.length > 0 && !line.includes("(")) {
+    const label = years.length > 1 ? "Years" : "Year"
+    return `${line} (${label}: ${years.join(", ")})`
+  }
+  return line
+}
+
+const dedupeList = (items: string[]) => Array.from(new Set(items.map((item) => item.trim()).filter(Boolean)))
+
+const extractResumeSections = (extractedText: string): StructuredResumeSections => {
+  const result: StructuredResumeSections = {
+    personalInformation: {
+      name: "",
+      email: "",
+      phone: "",
+    },
+    objective: [],
+    education: [],
+    projectsExperiences: [],
+    skills: [],
+    achievements: [],
+  }
+
+  const lines = extractedText.split(/\r?\n/)
+  const nonEmptyLines = lines.map((line) => line.trim()).filter(Boolean)
+
+  const probableName = nonEmptyLines.find((line) => {
+    const normalized = line.toLowerCase()
+    if (normalized.includes("resume")) return false
+    if (/(email|phone|contact|mobile|linkedin|github)/i.test(normalized)) return false
+    if (line.length > 60) return false
+    const words = line.split(/\s+/)
+    return words.length > 0 && words.length <= 6
+  })
+
+  if (probableName) {
+    result.personalInformation.name = probableName
+  }
+
+  const emailMatch = extractedText.match(EMAIL_REGEX)
+  if (emailMatch) {
+    result.personalInformation.email = emailMatch[0]
+  }
+
+  const phoneMatch = extractedText.match(PHONE_REGEX)
+  if (phoneMatch) {
+    result.personalInformation.phone = phoneMatch[0].trim()
+  }
+
+  let currentSection: ResumeSectionKey | null = null
+
+  lines.forEach((rawLine) => {
+    const cleanedLine = sanitizeLine(rawLine)
+    if (!cleanedLine) return
+
+    if (isHeadingCandidate(rawLine)) {
+      const detected = detectSectionFromLine(cleanedLine)
+      if (detected) {
+        currentSection = detected
+        return
+      }
+    }
+
+    if (!currentSection) return
+
+    switch (currentSection) {
+      case "objective":
+        result.objective.push(cleanedLine)
+        break
+      case "education":
+        result.education.push(formatEducationEntry(cleanedLine))
+        break
+      case "projectsExperiences":
+        result.projectsExperiences.push(cleanedLine)
+        break
+      case "skills":
+        splitSkillsLine(cleanedLine).forEach((skill) => result.skills.push(skill))
+        break
+      case "achievements":
+        result.achievements.push(cleanedLine)
+        break
+    }
+  })
+
+  result.objective = result.objective.length ? [result.objective.join(" ")] : []
+  result.education = dedupeList(result.education)
+  result.projectsExperiences = dedupeList(result.projectsExperiences)
+  result.skills = dedupeList(result.skills)
+  result.achievements = dedupeList(result.achievements)
+
+  return result
+}
+
+const formatResumeSections = (sections: StructuredResumeSections): string => {
+  const lines: string[] = []
+  const personalEntries = [
+    sections.personalInformation.name && `name: ${sections.personalInformation.name}`,
+    sections.personalInformation.email && `email: ${sections.personalInformation.email}`,
+    sections.personalInformation.phone && `phone: ${sections.personalInformation.phone}`,
+  ].filter(Boolean) as string[]
+
+  lines.push("personal information:")
+  if (personalEntries.length) {
+    lines.push(...personalEntries)
+  } else {
+    lines.push("not detected")
+  }
+  lines.push("")
+
+  const appendSection = (title: string, entries: string[]) => {
+    lines.push(`${title}:`)
+    if (entries.length) {
+      entries.forEach((entry) => lines.push(entry))
+    } else {
+      lines.push("not detected")
+    }
+    lines.push("")
+  }
+
+  appendSection("objective", sections.objective)
+  appendSection("education", sections.education)
+  appendSection("projects/experiences", sections.projectsExperiences)
+  appendSection("skills", sections.skills)
+  appendSection("achievements", sections.achievements)
+
+  return lines.join("\n").trim()
+}
+
 export default function ResumeExtractor() {
   const [text, setText] = useState("");
   const [fileName, setFileName] = useState("")
@@ -73,8 +281,12 @@ export default function ResumeExtractor() {
   const [originalText, setOriginalText] = useState("")
   const [formattedData, setFormattedData] = useState<string>("")
   const [showExtractedSection, setShowExtractedSection] = useState(false)
+  const [structuredSections, setStructuredSections] = useState<StructuredResumeSections | null>(null)
+  const [isExtractingWithGroq, setIsExtractingWithGroq] = useState(false)
+  const [templates, setTemplates] = useState<Template[]>([])
+  const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
-const router  = useRouter()
+  const router = useRouter()
   useEffect(() => {
     const loadPdfJs = async () => {
       try {
@@ -108,7 +320,20 @@ const router  = useRouter()
       }
     }
 
+    const fetchTemplates = async () => {
+      try {
+        const res = await fetch('/api/templates')
+        if (res.ok) {
+          const data = await res.json()
+          setTemplates(data.templates || [])
+        }
+      } catch (error) {
+        console.error("Error fetching templates:", error)
+      }
+    }
+
     loadPdfJs()
+    fetchTemplates()
   }, [])
 
   const detectFileType = (file: File): string => {
@@ -143,6 +368,7 @@ const router  = useRouter()
     setShowFormatted(false)
     setFormattedData("")
     setShowExtractedSection(false)
+    setStructuredSections(null)
 
     try {
       const detectedType = detectFileType(file)
@@ -306,215 +532,49 @@ const router  = useRouter()
     document.body.removeChild(element)
   }
 
-  // Convert extracted text to dictionary format
-  const convertToDictionaryFormat = (extractedText: string): string => {
-    const lines = extractedText.split('\n').filter(line => line.trim())
-    const dictionary: Record<string, any> = {
-      personal_info: {
-        name: '',
-        email: '',
-        phone: '',
-        city: ''
-      },
-      educations: [],
-      projects_experiences: [],
-      achievements: [],
-      interest_skills: [],
-      website_links: []
+  const showExtractedInfo = async () => {
+    if (!originalText && !text) {
+      toast.error("Please upload a resume first")
+      return
     }
 
-    // Email regex pattern
-    const emailRegex = /([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9_-]+)/gi
-    // Phone regex pattern (supports various formats)
-    const phoneRegex = /(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}|\d{10}/g
-    // URL regex pattern
-    const urlRegex = /(https?:\/\/[^\s]+|www\.[^\s]+|[a-zA-Z0-9-]+\.[a-zA-Z]{2,}(?:\/[^\s]*)?)/gi
-    // Location patterns
-    const locationKeywords = ['location', 'address', 'city', 'state', 'country', 'based in', 'residing in']
-    
-    let currentSection = 'other'
-    let foundPersonalInfo = false
-    
-    lines.forEach((line, index) => {
-      const trimmedLine = line.trim()
-      const lowerLine = trimmedLine.toLowerCase()
-      
-      // Extract email
-      const emailMatch = trimmedLine.match(emailRegex)
-      if (emailMatch && !dictionary.personal_info.email) {
-        dictionary.personal_info.email = emailMatch[0]
-        foundPersonalInfo = true
-      }
-      
-      // Extract phone
-      const phoneMatch = trimmedLine.match(phoneRegex)
-      if (phoneMatch && !dictionary.personal_info.phone) {
-        dictionary.personal_info.phone = phoneMatch[0]
-        foundPersonalInfo = true
-      }
-      
-      // Extract URLs/website links
-      const urlMatch = trimmedLine.match(urlRegex)
-      if (urlMatch) {
-        urlMatch.forEach(url => {
-          const cleanUrl = url.trim()
-          if (cleanUrl && !dictionary.website_links.includes(cleanUrl)) {
-            dictionary.website_links.push(cleanUrl)
+    try {
+      setIsExtractingWithGroq(true)
+      const textToExtract = originalText || text
+
+      const result = await extractResumeWithGroq(textToExtract)
+
+      if (result.success && result.data) {
+        setStructuredSections(result.data)
+        const formattedText = formatResumeSections(result.data)
+        setFormattedData(formattedText)
+        setShowExtractedSection(true)
+
+        // Scroll to the extracted info section
+        setTimeout(() => {
+          const element = document.getElementById('extracted-info-section')
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'start' })
           }
-        })
-      }
-      
-      // Extract name (usually first line or line with "name" keyword)
-      if ((index === 0 || lowerLine.includes('name')) && !dictionary.personal_info.name) {
-        if (lowerLine.includes('name')) {
-          const namePart = trimmedLine.split(':')[1]?.trim() || trimmedLine.replace(/name/gi, '').trim()
-          if (namePart && namePart.length > 2 && !emailMatch && !phoneMatch) {
-            dictionary.personal_info.name = namePart
-            foundPersonalInfo = true
-          }
-        } else if (index === 0 && trimmedLine.length > 2 && !emailMatch && !phoneMatch && !urlMatch) {
-          dictionary.personal_info.name = trimmedLine
-          foundPersonalInfo = true
-        }
-      }
-      
-      // Extract city/location
-      if (locationKeywords.some(keyword => lowerLine.includes(keyword)) && !dictionary.personal_info.city) {
-        const locationPart = trimmedLine.split(':')[1]?.trim() || trimmedLine
-        // Try to extract city name (simple heuristic)
-        const cityMatch = locationPart.match(/\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\b/)
-        if (cityMatch && locationPart.length > 2 && locationPart.length < 50) {
-          dictionary.personal_info.city = locationPart
-          foundPersonalInfo = true
-        }
-      }
-      
-      // Detect section headers
-      if (lowerLine.includes('education') || lowerLine.includes('qualification') || lowerLine.includes('academic') || lowerLine.includes('degree')) {
-        currentSection = 'education'
-      } else if (lowerLine.includes('experience') || lowerLine.includes('work') || lowerLine.includes('employment') || lowerLine.includes('professional') || lowerLine.includes('project')) {
-        currentSection = 'project_experience'
-      } else if (lowerLine.includes('achievement') || lowerLine.includes('award') || lowerLine.includes('recognition') || lowerLine.includes('honor')) {
-        currentSection = 'achievement'
-      } else if (lowerLine.includes('skill') || lowerLine.includes('technical') || lowerLine.includes('competenc') || lowerLine.includes('interest') || lowerLine.includes('hobby')) {
-        currentSection = 'skill_interest'
-      } else if (trimmedLine && !emailMatch && !phoneMatch && !urlMatch) {
-        // Add to current section if it's not already personal info
-        if (currentSection !== 'other' || !foundPersonalInfo || index > 5) {
-          if (currentSection === 'education') {
-            if (!dictionary.educations.includes(trimmedLine)) {
-              dictionary.educations.push(trimmedLine)
-            }
-          } else if (currentSection === 'project_experience') {
-            if (!dictionary.projects_experiences.includes(trimmedLine)) {
-              dictionary.projects_experiences.push(trimmedLine)
-            }
-          } else if (currentSection === 'achievement') {
-            if (!dictionary.achievements.includes(trimmedLine)) {
-              dictionary.achievements.push(trimmedLine)
-            }
-          } else if (currentSection === 'skill_interest') {
-            if (!dictionary.interest_skills.includes(trimmedLine)) {
-              dictionary.interest_skills.push(trimmedLine)
-            }
-          }
-        }
-      }
-    })
+        }, 100)
 
-    // Format output in the desired format
-    let output = ''
-    
-    // Personal info section
-    const hasPersonalInfo = dictionary.personal_info.name || dictionary.personal_info.email || 
-                           dictionary.personal_info.phone || dictionary.personal_info.city
-    if (hasPersonalInfo) {
-      output += 'personal_info:\n\n'
-      if (dictionary.personal_info.name) {
-        output += `name = ${dictionary.personal_info.name}\n`
+        toast.success("Resume extracted successfully!")
+      } else {
+        toast.error(result.error || "Failed to extract resume")
       }
-      if (dictionary.personal_info.email) {
-        output += `email = ${dictionary.personal_info.email}\n`
-      }
-      if (dictionary.personal_info.phone) {
-        output += `phone = ${dictionary.personal_info.phone}\n`
-      }
-      if (dictionary.personal_info.city) {
-        output += `city = ${dictionary.personal_info.city}\n`
-      }
-      output += '\n'
+    } catch (error) {
+      console.error("Error extracting with Groq:", error)
+      toast.error("An error occurred while extracting resume")
+    } finally {
+      setIsExtractingWithGroq(false)
     }
-    
-    // Educations section
-    if (dictionary.educations.length > 0) {
-      output += 'educations:\n'
-      dictionary.educations.forEach(edu => {
-        output += `${edu}\n`
-      })
-      output += '\n'
-    }
-    
-    // Projects/Experiences section
-    if (dictionary.projects_experiences.length > 0) {
-      output += 'projects/experiences:\n'
-      dictionary.projects_experiences.forEach(proj => {
-        output += `${proj}\n`
-      })
-      output += '\n'
-    }
-    
-    // Achievements section
-    if (dictionary.achievements.length > 0) {
-      output += 'achievements:\n'
-      dictionary.achievements.forEach(ach => {
-        output += `${ach}\n`
-      })
-      output += '\n'
-    }
-    
-    // Interest/Skills section
-    if (dictionary.interest_skills.length > 0) {
-      output += 'interest/skills:\n'
-      dictionary.interest_skills.forEach(skill => {
-        output += `${skill}\n`
-      })
-      output += '\n'
-    }
-    
-    // Website links section
-    if (dictionary.website_links.length > 0) {
-      output += 'website links:\n'
-      dictionary.website_links.forEach(link => {
-        output += `${link}\n`
-      })
-      output += '\n'
-    }
-
-    return output.trim()
-  }
-
-  const showExtractedInfo = () => {
-    if (!originalText) return
-    
-    const formattedText = convertToDictionaryFormat(originalText)
-    setFormattedData(formattedText)
-    setShowExtractedSection(true)
-    
-    // Scroll to the extracted info section
-    setTimeout(() => {
-      const element = document.getElementById('extracted-info-section')
-      if (element) {
-        element.scrollIntoView({ behavior: 'smooth', block: 'start' })
-      }
-    }, 100)
-    
-    toast.success("Formatted extracted information displayed!")
   }
 
   const downloadDictionaryFormat = () => {
     if (!originalText) return
-    
-    const dictText = convertToDictionaryFormat(originalText)
+
+    const data = structuredSections ?? extractResumeSections(originalText)
+    const dictText = formatResumeSections(data)
     const element = document.createElement("a")
     const file = new Blob([dictText], { type: "text/plain" })
     element.href = URL.createObjectURL(file)
@@ -525,57 +585,38 @@ const router  = useRouter()
     toast.success("Resume details downloaded as dictionary format!")
   }
 
-  // Parse formatted data into structured sections
-  const parseFormattedData = (data: string) => {
-    const sections: Record<string, string[]> = {}
-    const lines = data.split('\n')
-    let currentSection = ''
-    
-    lines.forEach(line => {
-      const trimmed = line.trim()
-      if (!trimmed) return
-      
-      // Check if it's a section header
-      if (trimmed.endsWith(':') && !trimmed.includes('=')) {
-        currentSection = trimmed.replace(':', '').trim()
-        sections[currentSection] = []
-      } else if (currentSection && trimmed.includes('=')) {
-        // Personal info fields
-        const [key, ...valueParts] = trimmed.split('=')
-        const value = valueParts.join('=').trim()
-        if (value) {
-          sections[currentSection].push(`${key.trim()} = ${value}`)
-        }
-      } else if (currentSection && trimmed) {
-        // Regular content lines
-        sections[currentSection].push(trimmed)
+  const handleGeneratePortfolio = async () => {
+    try {
+      setLoading(true)
+      // Use original text for portfolio generation, not the formatted version
+      const textToUse = originalText || text
+
+      if (!textToUse || textToUse.trim().length === 0) {
+        toast.error("Please upload a resume first")
+        setLoading(false)
+        return
       }
-    })
-    
-    return sections
-  }
 
-const handleGeneratePortfolio = async () => {
-  try {
-    setLoading(true)
-    // Use original text for portfolio generation, not the formatted version
-    const textToUse = originalText || text
-    const res = await generatePortfolio(textToUse);
-    console.log("response", res);
+      // Pass the selected template to the backend if one is chosen
+      const res = await generatePortfolio(textToUse, selectedTemplate ? selectedTemplate : undefined);
+      console.log("response", res);
 
-    if(res.success) {
+      if (res.success) {
+        setLoading(false)
+        toast.success("Portfolio Generated Successfully")
+        localStorage.setItem("portfolioHTML", res.portfolio?.toString() || ""); // Store in localStorage with null check
+        router.push("/customize"); // Navigate to portfolio page
+      }
+      else {
+        setLoading(false)
+        toast.error(res.error || "Failed to generate portfolio")
+      }
+    } catch (error) {
+      console.error("Error generating portfolio:", error);
       setLoading(false)
-      toast.success("Portfolio Generated Successfully")
-      localStorage.setItem("portfolioHTML", res.portfolio?.toString() || ""); // Store in localStorage with null check
-      router.push("/customize"); // Navigate to portfolio page
+      toast.error("An error occurred while generating portfolio")
     }
-    else{
-      toast.error("failed to genrate")
-    }
-  } catch (error) {
-    console.log(error);
-  }
-};
+  };
 
   return (
     <div className="relative min-h-screen w-full overflow-hidden bg-background">
@@ -720,54 +761,49 @@ const handleGeneratePortfolio = async () => {
                       <div className="mt-6 flex flex-col gap-4">
                         <Button
                           onClick={handleGeneratePortfolio}
-                          className={`flex items-center gap-2 bg-gradient-to-r from-violet-500 to-indigo-600 text-white ${
-                          loading ? "opacity-50 cursor-not-allowed" : ""
-                          }`}
+                          className="flex items-center gap-2 bg-gradient-to-r from-violet-500 to-indigo-600 text-white"
                           disabled={loading || isExtracting}
+                          loading={loading}
+                          loadingText={
+                            <span className="flex items-center gap-2">
+                              <Sparkles className="h-4 w-4" />
+                              Generating...
+                            </span>
+                          }
                         >
-                          {loading ? (
-                          <div className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-                          ) : (
                           <Sparkles className="h-4 w-4" />
-                          )}
-                          {loading ? "Generating..." : "Generate My Portfolio"}
+                          Generate My Portfolio
                         </Button>
                         <div className="flex gap-4">
-                          <Button 
-                            variant="outline" 
-                            onClick={triggerFileInput} 
+                          <Button
+                            variant="outline"
+                            onClick={triggerFileInput}
                             className="flex items-center gap-2"
-                            disabled={isUploading || isExtracting || loading}
-                          >
-                            {isUploading || isExtracting ? (
-                              <>
-                                <div className="h-4 w-4 rounded-full border-2 border-current border-t-transparent animate-spin" />
+                            disabled={loading || isUploading || isExtracting}
+                            loading={isUploading || isExtracting}
+                            loadingText={
+                              <span className="flex items-center gap-2">
                                 Processing...
-                              </>
-                            ) : (
-                              <>
-                                <Upload className="h-4 w-4" />
-                                Upload another file
-                              </>
-                            )}
+                              </span>
+                            }
+                          >
+                            <Upload className="h-4 w-4" />
+                            Upload another file
                           </Button>
                           <Button
                             onClick={showExtractedInfo}
                             className="flex items-center gap-2"
                             variant="outline"
-                            disabled={!text || isExtracting}
-                          >
-                            {isExtracting ? (
-                              <>
-                                <div className="h-4 w-4 rounded-full border-2 border-current border-t-transparent animate-spin" />
+                            disabled={!text || isExtracting || isExtractingWithGroq}
+                            loading={isExtractingWithGroq}
+                            loadingText={
+                              <span className="flex items-center gap-2">
                                 Extracting...
-                              </>
-                            ) : (
-                              <>
-                                <FileText className="h-4 w-4" />
-                                Extracted Info
-                              </>
-                            )}
+                              </span>
+                            }
+                          >
+                            <FileText className="h-4 w-4" />
+                            Extracted Info
                           </Button>
                         </div>
                       </div>
@@ -830,6 +866,47 @@ const handleGeneratePortfolio = async () => {
                     </p>
                   </div>
                 </div>
+
+                {/* Templates Section */}
+                {templates.length > 0 && (
+                  <div className="mt-12 w-full">
+                    <div className="mb-6 flex flex-col items-center justify-center text-center">
+                      <h2 className="text-2xl font-bold tracking-tight">Choose a Template <span className="text-sm font-normal text-muted-foreground">(Optional)</span></h2>
+                      <p className="text-muted-foreground mt-2 max-w-lg">
+                        Select a layout template for your portfolio. If none is selected, our AI will design one automatically.
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                      {templates.map((template) => (
+                        <div
+                          key={template.id}
+                          className={`group relative cursor-pointer overflow-hidden rounded-xl border-2 transition-all ${selectedTemplate === template.id ? "border-violet-500 shadow-[0_0_15px_rgba(139,92,246,0.3)] ring-2 ring-violet-500 ring-offset-2 ring-offset-background" : "border-transparent bg-muted hover:border-violet-300"}`}
+                          onClick={() => setSelectedTemplate((prev) => (prev === template.id ? null : template.id))}
+                        >
+                          <div className="aspect-[4/3] w-full overflow-hidden bg-white">
+                            <img
+                              src={template.image}
+                              alt={template.name}
+                              className="h-full w-full object-cover object-top transition-transform duration-500 group-hover:scale-105"
+                              loading="lazy"
+                            />
+                          </div>
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+                          <div className={`absolute bottom-0 left-0 right-0 p-4 transition-transform duration-300 ${selectedTemplate === template.id ? "translate-y-0" : "translate-y-2 group-hover:translate-y-0"}`}>
+                            <div className="flex items-center justify-between">
+                              <h3 className={`font-semibold text-white drop-shadow-md`}>{template.name}</h3>
+                              {selectedTemplate === template.id && (
+                                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-violet-500 text-white shadow-lg">
+                                  <Check className="h-4 w-4" />
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </TabsContent>
 
               <TabsContent value="extracted" className="mt-0">
@@ -845,15 +922,12 @@ const handleGeneratePortfolio = async () => {
                         variant="outline"
                         size="sm"
                         onClick={copyToClipboard}
-                        disabled={!text || isExtracting}
+                        disabled={!text}
                         className="flex items-center gap-1.5"
+                        loading={isExtracting}
+                        loadingText="Extracting..."
                       >
-                        {isExtracting ? (
-                          <>
-                            <div className="h-4 w-4 rounded-full border-2 border-current border-t-transparent animate-spin" />
-                            Extracting...
-                          </>
-                        ) : copied ? (
+                        {copied ? (
                           <>
                             <Check className="h-4 w-4" />
                             Copied
@@ -869,39 +943,25 @@ const handleGeneratePortfolio = async () => {
                         variant="outline"
                         size="sm"
                         onClick={showExtractedInfo}
-                        disabled={!text || isExtracting}
+                        disabled={!text}
                         className="flex items-center gap-1.5"
+                        loading={isExtracting}
+                        loadingText="Extracting..."
                       >
-                        {isExtracting ? (
-                          <>
-                            <div className="h-4 w-4 rounded-full border-2 border-current border-t-transparent animate-spin" />
-                            Extracting...
-                          </>
-                        ) : (
-                          <>
-                            <FileText className="h-4 w-4" />
-                            Extracted Info
-                          </>
-                        )}
+                        <FileText className="h-4 w-4" />
+                        Extracted Info
                       </Button>
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={downloadDictionaryFormat}
-                        disabled={!text || isExtracting}
+                        disabled={!text}
                         className="flex items-center gap-1.5"
+                        loading={isExtracting}
+                        loadingText="Extracting..."
                       >
-                        {isExtracting ? (
-                          <>
-                            <div className="h-4 w-4 rounded-full border-2 border-current border-t-transparent animate-spin" />
-                            Extracting...
-                          </>
-                        ) : (
-                          <>
-                            <Download className="h-4 w-4" />
-                            Download
-                          </>
-                        )}
+                        <Download className="h-4 w-4" />
+                        Download
                       </Button>
                     </div>
                   </div>
@@ -946,18 +1006,16 @@ const handleGeneratePortfolio = async () => {
                               onClick={handleGeneratePortfolio}
                               className="flex items-center gap-2 bg-gradient-to-r from-violet-500 to-indigo-600 text-white"
                               disabled={loading}
-                            >
-                              {loading ? (
-                                <>
-                                  <div className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-                                  Generating...
-                                </>
-                              ) : (
-                                <>
+                              loading={loading}
+                              loadingText={
+                                <span className="flex items-center gap-2">
                                   <Sparkles className="h-4 w-4" />
-                                  Generate My Portfolio
-                                </>
-                              )}
+                                  Generating...
+                                </span>
+                              }
+                            >
+                              <Sparkles className="h-4 w-4" />
+                              Generate My Portfolio
                             </Button>
                           </div>
                         )}
@@ -985,7 +1043,7 @@ const handleGeneratePortfolio = async () => {
           </motion.div>
 
           {/* Extracted Info Section */}
-          {showExtractedSection && formattedData && (
+          {showExtractedSection && structuredSections && (
             <motion.div
               id="extracted-info-section"
               variants={itemVariants}
@@ -1001,13 +1059,16 @@ const handleGeneratePortfolio = async () => {
                     </div>
                     <div>
                       <h2 className="text-xl font-bold">Extracted Resume Information</h2>
-                      <p className="text-sm text-muted-foreground">Formatted data from your resume</p>
+                      <p className="text-sm text-muted-foreground">AI-powered extraction using Groq API</p>
                     </div>
                   </div>
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => setShowExtractedSection(false)}
+                    onClick={() => {
+                      setShowExtractedSection(false)
+                      setStructuredSections(null)
+                    }}
                     className="h-8 w-8 p-0"
                   >
                     <X className="h-4 w-4" />
@@ -1016,39 +1077,108 @@ const handleGeneratePortfolio = async () => {
                 </div>
 
                 <div className="space-y-6">
-                  {Object.entries(parseFormattedData(formattedData)).map(([sectionName, items]) => {
-                    if (items.length === 0) return null
-
-                    return (
-                      <div key={sectionName} className="rounded-lg border bg-background/50 p-4">
-                        <h3 className="mb-3 text-lg font-semibold capitalize text-violet-500">
-                          {sectionName.replace(/_/g, ' ')}
-                        </h3>
-                        <div className="space-y-2">
-                          {items.map((item, index) => {
-                            if (item.includes('=')) {
-                              const [key, value] = item.split('=').map(s => s.trim())
-                              return (
-                                <div key={index} className="flex items-start gap-3 py-1">
-                                  <span className="min-w-[100px] font-medium text-muted-foreground capitalize">
-                                    {key}:
-                                  </span>
-                                  <span className="flex-1 text-foreground">{value}</span>
-                                </div>
-                              )
-                            }
-                            return (
-                              <div key={index} className="py-1 text-foreground">
-                                <span className="before:content-['•'] before:mr-2 before:text-violet-500">
-                                  {item}
-                                </span>
-                              </div>
-                            )
-                          })}
-                        </div>
+                  <div className="rounded-lg border bg-background/50 p-4">
+                    <h3 className="mb-3 text-lg font-semibold text-violet-500">Personal Information</h3>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex items-start gap-3">
+                        <span className="min-w-[120px] font-medium text-muted-foreground">Name</span>
+                        <span className="text-foreground">
+                          {structuredSections.personalInformation.name || "Not detected"}
+                        </span>
                       </div>
-                    )
-                  })}
+                      <div className="flex items-start gap-3">
+                        <span className="min-w-[120px] font-medium text-muted-foreground">Email</span>
+                        <span className="text-foreground">
+                          {structuredSections.personalInformation.email || "Not detected"}
+                        </span>
+                      </div>
+                      <div className="flex items-start gap-3">
+                        <span className="min-w-[120px] font-medium text-muted-foreground">Phone</span>
+                        <span className="text-foreground">
+                          {structuredSections.personalInformation.phone || "Not detected"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg border bg-background/50 p-4">
+                    <h3 className="mb-3 text-lg font-semibold text-violet-500">Objective</h3>
+                    {structuredSections.objective.length ? (
+                      structuredSections.objective.map((entry, index) => (
+                        <p key={`objective-${index}`} className="text-sm leading-relaxed text-foreground">
+                          {entry}
+                        </p>
+                      ))
+                    ) : (
+                      <p className="text-sm text-muted-foreground">No objective detected.</p>
+                    )}
+                  </div>
+
+                  <div className="rounded-lg border bg-background/50 p-4">
+                    <h3 className="mb-3 text-lg font-semibold text-violet-500">Education</h3>
+                    {structuredSections.education.length ? (
+                      <ul className="space-y-2 text-sm text-foreground">
+                        {structuredSections.education.map((entry, index) => (
+                          <li key={`education-${index}`} className="flex items-start gap-3">
+                            <span className="mt-1 h-2 w-2 rounded-full bg-violet-500" aria-hidden />
+                            <span className="flex-1">{entry}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">No education details detected.</p>
+                    )}
+                  </div>
+
+                  <div className="rounded-lg border bg-background/50 p-4">
+                    <h3 className="mb-3 text-lg font-semibold text-violet-500">Projects / Experiences</h3>
+                    {structuredSections.projectsExperiences.length ? (
+                      <ul className="space-y-2 text-sm text-foreground">
+                        {structuredSections.projectsExperiences.map((entry, index) => (
+                          <li key={`project-${index}`} className="flex items-start gap-3">
+                            <span className="mt-1 h-2 w-2 rounded-full bg-violet-500" aria-hidden />
+                            <span className="flex-1">{entry}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">No project or experience details detected.</p>
+                    )}
+                  </div>
+
+                  <div className="rounded-lg border bg-background/50 p-4">
+                    <h3 className="mb-3 text-lg font-semibold text-violet-500">Skills</h3>
+                    {structuredSections.skills.length ? (
+                      <div className="flex flex-wrap gap-2">
+                        {structuredSections.skills.map((skill, index) => (
+                          <span
+                            key={`skill-${index}`}
+                            className="rounded-full bg-violet-500/10 px-3 py-1 text-sm capitalize text-violet-700"
+                          >
+                            {skill}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">No skills detected.</p>
+                    )}
+                  </div>
+
+                  <div className="rounded-lg border bg-background/50 p-4">
+                    <h3 className="mb-3 text-lg font-semibold text-violet-500">Achievements</h3>
+                    {structuredSections.achievements.length ? (
+                      <ul className="space-y-2 text-sm text-foreground">
+                        {structuredSections.achievements.map((entry, index) => (
+                          <li key={`achievement-${index}`} className="flex items-start gap-3">
+                            <span className="mt-1 h-2 w-2 rounded-full bg-violet-500" aria-hidden />
+                            <span className="flex-1">{entry}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">No achievements detected.</p>
+                    )}
+                  </div>
                 </div>
 
                 <div className="mt-6 flex justify-end gap-2">
@@ -1060,6 +1190,7 @@ const handleGeneratePortfolio = async () => {
                       toast.success("Copied to clipboard!")
                     }}
                     className="flex items-center gap-2"
+                    disabled={!formattedData}
                   >
                     <Copy className="h-4 w-4" />
                     Copy
@@ -1069,6 +1200,7 @@ const handleGeneratePortfolio = async () => {
                     size="sm"
                     onClick={downloadDictionaryFormat}
                     className="flex items-center gap-2"
+                    disabled={!formattedData}
                   >
                     <Download className="h-4 w-4" />
                     Download

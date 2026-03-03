@@ -1,23 +1,39 @@
-import { authOptions } from '@/lib/auth'
-import { getServerSession } from 'next-auth'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
- 
-// This function can be marked `async` if using `await` inside
+import { getToken } from 'next-auth/jwt'
+
+const AUTH_PAGES = ['/signin', '/signup']
+const PROTECTED_PATHS = [
+  '/dashboard',
+  '/generate-portfolio',
+  '/customize',
+  '/portfolio',
+  '/portfolios',
+  '/projects',
+  '/publish-success',
+  '/communities',
+]
+
 export async function middleware(request: NextRequest) {
-    const session = await getServerSession(authOptions)
-    if(!session && request.nextUrl.pathname !== '/signin' && request.nextUrl.pathname !== '/signup'){
-        // If the user is not authenticated and trying to access a protected route, redirect to the sign-in page
-        return NextResponse.redirect(new URL('/signin', request.url))
+    const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET })
+    const { pathname } = request.nextUrl
+
+    const isAuthPage = AUTH_PAGES.includes(pathname)
+    const isProtectedRoute = PROTECTED_PATHS.some((path) => pathname.startsWith(path))
+
+    if (!token && isProtectedRoute) {
+        const signInUrl = new URL('/signin', request.url)
+        signInUrl.searchParams.set('callbackUrl', pathname)
+        return NextResponse.redirect(signInUrl)
     }
-    if(session && (request.nextUrl.pathname === '/signin' || request.nextUrl.pathname === '/signup')){
-        // If the user is authenticated and trying to access the sign-in or signup page, redirect to the home page
-        return NextResponse.redirect(new URL('/', request.url))
+
+    if (token && isAuthPage) {
+        return NextResponse.redirect(new URL('/dashboard', request.url))
     }
-    return NextResponse.next();
+
+    return NextResponse.next()
 }
- 
-// See "Matching Paths" below to learn more
+
 export const config = {
-  matcher: '/(.*)',
+  matcher: PROTECTED_PATHS.map((path) => `${path}/:path*`),
 }

@@ -3,7 +3,7 @@
 import type { Project } from "@/lib/types"
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { StarIcon, GitForkIcon, Loader2 } from "lucide-react"
+import { StarIcon, GitForkIcon } from "lucide-react"
 import Link from "next/link"
 import { addToPortfolio } from "@/actions/addToPortfolio/add-to-portfolio"
 import { toast } from "sonner"
@@ -66,9 +66,8 @@ export function ProjectCard({ project }: ProjectCardProps) {
         <Button size="sm" className="bg-purple-400" onClick={(e)=>{
             e.preventDefault();
             handleAddedToPortfolio(project)
-        }} variant='default'>
-            {addedLoading ? 'Adding..': 'Add to Portfolio'}
-            {addedLoading && <Loader2 className="h-4 animate-spin w-4 ml-2"/>}
+        }} variant='default' loading={addedLoading} loadingText="Adding...">
+            Add to Portfolio
         </Button>
       </CardFooter>
     </Card>

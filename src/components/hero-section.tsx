@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import Link from "next/link"
 import { motion } from "framer-motion"
 import { ArrowRight, Zap } from "lucide-react"
@@ -11,7 +11,7 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from "@/components/ui/hover-card"
-import { Session } from "next-auth"
+import { useSession } from "next-auth/react"
 
 // Animation variants for staggered animation
 const containerVariants = {
@@ -45,8 +45,22 @@ const features = [
   "SEO optimized",
 ]
 
-export function HeroSection({ session }: { session: Session | null }) {
+export function HeroSection() {
   const [isHovering, setIsHovering] = useState(false)
+  const [ctaClicked, setCtaClicked] = useState(false)
+  const { data: session, status } = useSession()
+
+  const cta = useMemo(() => {
+    const isAuthenticated = status === "authenticated" && !!session?.user
+    const targetRoute = "/generate-portfolio"
+
+    return {
+      href: isAuthenticated ? targetRoute : `/signin?callbackUrl=${encodeURIComponent(targetRoute)}`,
+      // Home page button: only navigates, real generation happens later on the generator page
+      label: isAuthenticated ? "Open Portfolio Generator" : "Get started for free",
+      showHover: true,
+    }
+  }, [status, session?.user])
 
   return (
     <div className="relative overflow-hidden bg-background py-12 md:py-20">
@@ -124,10 +138,19 @@ export function HeroSection({ session }: { session: Session | null }) {
           >
             <HoverCard>
               <HoverCardTrigger asChild>
-                {session ? <Link href="/generate-portfolio">
+                <Link
+                  href={cta.href}
+                  onClick={() => {
+                    // Disable further clicks on the home-page CTA; real work happens later
+                    setCtaClicked(true)
+                  }}
+                >
                   <Button
                     size="lg"
-                    className="relative overflow-hidden bg-gradient-to-r from-violet-500 to-indigo-600 text-white transition-transform hover:scale-105"
+                    disabled={ctaClicked}
+                    className={`relative overflow-hidden bg-gradient-to-r from-violet-500 to-indigo-600 text-white transition-transform ${
+                      ctaClicked ? "pointer-events-none opacity-70" : "hover:scale-105"
+                    }`}
                     onMouseEnter={() => setIsHovering(true)}
                     onMouseLeave={() => setIsHovering(false)}
                   >
@@ -136,7 +159,7 @@ export function HeroSection({ session }: { session: Session | null }) {
                       animate={isHovering ? { x: 5 } : { x: 0 }}
                       transition={{ type: "spring", stiffness: 300, damping: 15 }}
                     >
-                      Generate Portfolio
+                      {cta.label}
                       <ArrowRight className="h-4 w-4" />
                     </motion.span>
                     <motion.div
@@ -146,29 +169,7 @@ export function HeroSection({ session }: { session: Session | null }) {
                       transition={{ type: "spring", stiffness: 100, damping: 20 }}
                     />
                   </Button>
-                </Link> : <Link href="/signin">
-                  <Button
-                    size="lg"
-                    className="relative overflow-hidden bg-gradient-to-r from-violet-500 to-indigo-600 text-white transition-transform hover:scale-105"
-                    onMouseEnter={() => setIsHovering(true)}
-                    onMouseLeave={() => setIsHovering(false)}
-                  >
-                    <motion.span
-                      className="relative z-10 flex items-center gap-2"
-                      animate={isHovering ? { x: 5 } : { x: 0 }}
-                      transition={{ type: "spring", stiffness: 300, damping: 15 }}
-                    >
-                      Get started for free
-                      <ArrowRight className="h-4 w-4" />
-                    </motion.span>
-                    <motion.div
-                      className="absolute inset-0 bg-gradient-to-r from-indigo-600 to-violet-500"
-                      initial={{ x: "100%" }}
-                      animate={isHovering ? { x: 0 } : { x: "100%" }}
-                      transition={{ type: "spring", stiffness: 100, damping: 20 }}
-                    />
-                  </Button>
-                </Link>}
+                </Link>
               </HoverCardTrigger>
               <HoverCardContent className="w-80  backdrop-blur-3xl">
                 <div className="flex justify-between space-y-1">

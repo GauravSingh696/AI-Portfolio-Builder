@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { generateHTML } from "../generate";
 import prisma from "@/lib/prisma";
 
-const generatePortfolioHandler = async (resumeText: string) => {
+const generatePortfolioHandler = async (resumeText: string, templateId?: string) => {
   const session = await getServerSession(authOptions);
   console.log(session)
   try {
@@ -25,7 +25,7 @@ const generatePortfolioHandler = async (resumeText: string) => {
 
     console.log("Generating portfolio for received resume text...");
 
-    const portfolioHTML = await generateHTML(resumeText, projects, session);
+    const portfolioHTML = await generateHTML(resumeText, projects, session, templateId);
 
     return {
       success: true,

@@ -150,39 +150,26 @@ GITHUB_CLIENT_SECRET="a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0"
 
 ---
 
-## 5. 🤖 NEXT_PUBLIC_GEMINI_API_KEY (Google Gemini API)
+## 5. 🤖 GROQ_API_KEY (Groq API)
 
 ### Step-by-Step Guide:
 
-1. **Go to Google AI Studio**:
-   - Visit https://aistudio.google.com/
-   - Sign in with your Google account
-
-2. **Get API Key**:
-   - Click **Get API key** button (top right)
-   - Click **Create API key** in new project
-   - Or select an existing project
-   - Click **Create API key in new project** or **Create API key in existing project**
-
-3. **Copy Your API Key**:
-   - A popup will show your API key
-   - Click **Copy** to copy it
-   - ⚠️ **Important**: Save this key securely - you won't be able to see it again!
-
-4. **Alternative Method (Google Cloud Console)**:
-   - Go to https://console.cloud.google.com/
-   - Create a new project or select existing
-   - Enable **Generative Language API**
-   - Go to **APIs & Services** → **Credentials**
-   - Click **Create Credentials** → **API Key**
-   - Copy the generated key
+1. **Go to the Groq console**: https://console.groq.com/
+2. **Sign in or create an account**
+3. **Navigate to API Keys section**
+4. **Generate a new API key**
+5. **Copy the generated key** – store it securely
 
 **Example:**
 ```
-NEXT_PUBLIC_GEMINI_API_KEY="AIzaSyAbCdEfGhIjKlMnOpQrStUvWxYz1234567"
+GROQ_API_KEY="your-groq-api-key-here"
+GROQ_API_BASE_URL="https://api.groq.com/openai/v1" # optional, defaults to this
+GROQ_MODEL="llama-3.3-70b-versatile" # example model name
 ```
 
-**Note**: Google provides free tier with generous limits for Gemini API.
+**Note**: 
+- Check the Groq docs / console for available models
+- The app uses Groq’s OpenAI-compatible chat completions endpoint: `POST /chat/completions`
 
 ---
 
@@ -207,8 +194,10 @@ NEXT_PUBLIC_GEMINI_API_KEY="AIzaSyAbCdEfGhIjKlMnOpQrStUvWxYz1234567"
    GITHUB_CLIENT_ID="your-github-client-id"
    GITHUB_CLIENT_SECRET="your-github-client-secret"
 
-   # Google Gemini API
-   NEXT_PUBLIC_GEMINI_API_KEY="your-gemini-api-key"
+   # Groq API
+   GROQ_API_KEY="your-groq-api-key"
+   GROQ_API_BASE_URL="https://api.groq.com/openai/v1" # optional
+   GROQ_MODEL="llama-3.3-70b-versatile" # example
    ```
 
 3. **Replace all placeholder values** with your actual credentials
@@ -230,8 +219,10 @@ NEXT_PUBLIC_GEMINI_API_KEY="AIzaSyAbCdEfGhIjKlMnOpQrStUvWxYz1234567"
 - [ ] GITHUB_CLIENT_ID is copied
 - [ ] GITHUB_CLIENT_SECRET is generated and copied
 - [ ] GitHub callback URL is set correctly
-- [ ] Gemini API key is obtained
-- [ ] NEXT_PUBLIC_GEMINI_API_KEY is set
+- [ ] Groq API key is obtained
+- [ ] GROQ_API_KEY is set
+- [ ] GROQ_API_BASE_URL is set (optional)
+- [ ] GROQ_MODEL is set (optional)
 - [ ] `.env` file is created in project root
 - [ ] All values in `.env` are replaced with actual credentials
 
@@ -242,7 +233,7 @@ NEXT_PUBLIC_GEMINI_API_KEY="AIzaSyAbCdEfGhIjKlMnOpQrStUvWxYz1234567"
 1. **Database**: Use Supabase (free) → Get connection string
 2. **NextAuth Secret**: Run `openssl rand -base64 32`
 3. **GitHub OAuth**: Create OAuth App at github.com/settings/developers
-4. **Gemini API**: Get key from aistudio.google.com
+4. **Groq API**: Get key from the Groq console
 5. **Create .env**: Add all variables with your actual values
 6. **Run**: `npx prisma generate && npm run dev`
 
@@ -261,10 +252,11 @@ NEXT_PUBLIC_GEMINI_API_KEY="AIzaSyAbCdEfGhIjKlMnOpQrStUvWxYz1234567"
 - Check if Client ID and Secret are correct
 - Make sure there are no extra spaces in `.env` file
 
-### Gemini API Errors
-- Verify API key is correct
-- Check if API is enabled in Google Cloud Console
-- Ensure you're using the correct model name
+### Groq API Errors
+- Verify GROQ_API_KEY is correct
+- Check GROQ_API_BASE_URL matches Groq (e.g. https://api.groq.com/openai/v1)
+- Ensure GROQ_MODEL is a valid Groq model name
+- Check rate limits in the Groq console
 
 ---
 
@@ -273,5 +265,5 @@ NEXT_PUBLIC_GEMINI_API_KEY="AIzaSyAbCdEfGhIjKlMnOpQrStUvWxYz1234567"
 - [PostgreSQL Documentation](https://www.postgresql.org/docs/)
 - [NextAuth.js Documentation](https://next-auth.js.org/)
 - [GitHub OAuth Documentation](https://docs.github.com/en/apps/oauth-apps)
-- [Google Gemini API Documentation](https://ai.google.dev/docs)
+- See the Groq docs for OpenAI-compatible chat completions
 

@@ -7,11 +7,20 @@ import { motion } from "framer-motion"
 
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import Image from "next/image"
-import {  Session } from "next-auth"
-import { signOut } from "next-auth/react"
+import { signOut, useSession } from "next-auth/react"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
+import { LayoutDashboard, LogOut, FileText, User } from "lucide-react"
 const navLinks = [
   { href: "#features", label: "Features" },
   { href: "#how-it-works", label: "How It Works" },
@@ -20,10 +29,28 @@ const navLinks = [
   { href: "/communities", label: "Community" },
 ]
 
-export function Navbar({ session }: { session: Session | null }) {
+export function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const router = useRouter();
+  const { data: session } = useSession();
+
+  const handleSignOut = async () => {
+    await signOut({ redirect: false });
+    toast.success("Logged out successfully");
+    router.push('/');
+  }
+
+  // Get user initials for avatar fallback
+  const getUserInitials = () => {
+    if (session?.user?.name) {
+      return session.user.name.substring(0, 2).toUpperCase();
+    }
+    if (session?.user?.email) {
+      return session.user.email.substring(0, 2).toUpperCase();
+    }
+    return "U";
+  }
 
 
   return (
@@ -67,22 +94,52 @@ export function Navbar({ session }: { session: Session | null }) {
         </div>
 
         <div className="flex items-center gap-4">
-          {session === null ? <div className="hidden sm:flex sm:items-center sm:gap-4">
+          {!session ? <div className="hidden sm:flex sm:items-center sm:gap-4">
             <Link href="/signin">
-              <Button variant="ghost">Log in</Button>
+              <Button className="bg-gradient-to-r from-violet-500 to-indigo-600 text-white shadow-lg hover:shadow-xl">
+                Log in
+              </Button>
             </Link>
-            <Link href="/signup">
-              <Button className="bg-gradient-to-tr from-violet-500 to-indigo-600 text-white">Sign up free</Button>
-            </Link>
-          </div> : <div className="hidden sm:inline-flex">
-            <Button variant='default' className="bg-gradient-to-r from-violet-500 to-indigo-600 text-white" onClick={async()=>{
-              await signOut();
-              toast.success("Logged out successfully");
-              router.push('/');
-            }}>
-              Logout
-            </Button>
-            </div>}
+          </div> : <div className="hidden sm:flex items-center">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="relative h-10 w-10 rounded-full border border-violet-200">
+                  <Avatar className="h-10 w-10">
+                    <AvatarImage src={session.user?.image || ""} alt={session.user?.name || "User"} />
+                    <AvatarFallback className="bg-violet-100 text-violet-700 font-semibold">{getUserInitials()}</AvatarFallback>
+                  </Avatar>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-56 bg-white dark:bg-gray-950 shadow-md border" align="end" forceMount>
+                <DropdownMenuLabel className="font-normal">
+                  <div className="flex flex-col space-y-1">
+                    <p className="text-sm font-medium leading-none">{session.user?.name || "User"}</p>
+                    <p className="text-xs leading-none text-muted-foreground">
+                      {session.user?.email}
+                    </p>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild className="cursor-pointer">
+                  <Link href="/dashboard" className="flex items-center w-full">
+                    <LayoutDashboard className="mr-2 h-4 w-4" />
+                    <span>Dashboard</span>
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild className="cursor-pointer">
+                  <Link href="/generate-portfolio" className="flex items-center w-full">
+                    <FileText className="mr-2 h-4 w-4" />
+                    <span>Generate Portfolio</span>
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer text-red-600 focus:text-red-700">
+                  <LogOut className="mr-2 h-4 w-4" />
+                  <span>Log out</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>}
 
           <div className="flex sm:hidden">
             <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
@@ -134,14 +191,44 @@ export function Navbar({ session }: { session: Session | null }) {
                   </nav>
 
                   <div className="flex flex-col gap-4">
-                    <Link href="/signin" onClick={() => setMobileMenuOpen(false)}>
-                      <Button variant="outline" className="w-full">Log in</Button>
-                    </Link>
-                    <Link href='/signin' onClick={() => setMobileMenuOpen(false)}>
-                      <Button className="w-full bg-gradient-to-tr from-violet-500 to-indigo-600 text-white">
-                        Sign up free
-                      </Button>
-                    </Link>
+                    {!session ? (
+                      <Link href="/signin" onClick={() => setMobileMenuOpen(false)}>
+                        <Button className="w-full bg-gradient-to-r from-violet-500 to-indigo-600 text-white shadow-lg hover:shadow-xl">
+                          Log in
+                        </Button>
+                      </Link>
+                    ) : (
+                      <div className="flex flex-col gap-4 border-t pt-4 mt-2">
+                        <div className="flex items-center gap-3 px-2">
+                          <Avatar className="h-9 w-9 border border-violet-200">
+                            <AvatarImage src={session.user?.image || ""} alt={session.user?.name || "User"} />
+                            <AvatarFallback className="bg-violet-100 text-violet-700">{getUserInitials()}</AvatarFallback>
+                          </Avatar>
+                          <div className="flex flex-col">
+                            <span className="text-sm font-medium">{session.user?.name || "User"}</span>
+                            <span className="text-xs text-muted-foreground">{session.user?.email}</span>
+                          </div>
+                        </div>
+                        <div className="flex flex-col gap-2">
+                          <Link href="/dashboard" onClick={() => setMobileMenuOpen(false)}>
+                            <Button variant="outline" className="w-full justify-start">
+                              <LayoutDashboard className="mr-2 h-4 w-4" />
+                              Dashboard
+                            </Button>
+                          </Link>
+                          <Link href="/generate-portfolio" onClick={() => setMobileMenuOpen(false)}>
+                            <Button variant="outline" className="w-full justify-start">
+                              <FileText className="mr-2 h-4 w-4" />
+                              Generate Portfolio
+                            </Button>
+                          </Link>
+                          <Button variant="destructive" className="w-full justify-start mt-2" onClick={() => { handleSignOut(); setMobileMenuOpen(false); }}>
+                            <LogOut className="mr-2 h-4 w-4" />
+                            Log out
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </SheetContent>

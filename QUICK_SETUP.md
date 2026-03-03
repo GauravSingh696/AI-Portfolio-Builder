@@ -44,11 +44,14 @@ NEXTAUTH_URL="http://localhost:3000"
 
 ---
 
-### 5. Gemini API Key
-1. Go to https://aistudio.google.com/
-2. Click **Get API key**
-3. Click **Create API key**
-4. Copy the generated key
+### 5. Groq API Key
+1. Go to the Groq console: https://console.groq.com/
+2. Sign in or create an account
+3. Navigate to API Keys section
+4. Generate a new API key
+5. Copy the generated key
+
+**Note**: Check Groq documentation for available models and usage.
 
 ---
 
@@ -60,7 +63,9 @@ NEXTAUTH_SECRET="paste-generated-secret-here"
 NEXTAUTH_URL="http://localhost:3000"
 GITHUB_CLIENT_ID="paste-github-client-id-here"
 GITHUB_CLIENT_SECRET="paste-github-client-secret-here"
-NEXT_PUBLIC_GEMINI_API_KEY="paste-gemini-api-key-here"
+GROQ_API_KEY="paste-groq-api-key-here"
+GROQ_API_BASE_URL="https://api.groq.com/openai/v1"
+GROQ_MODEL="llama-3.3-70b-versatile"
 ```
 
 ---
