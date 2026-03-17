@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Prerak Raja | Software & AI Engineer</title>
+
+  <!-- Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+
+  <!-- Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+
+  <style>
+    :root{
+      --bg:#fafafa;
+      --ink:#0f172a;
+      --muted:#475569;
+      --line:#e2e8f0;
+      --accent:#6366f1;
+      --accent-soft:#eef2ff;
+    }
+
+    *{box-sizing:border-box;margin:0;padding:0}
+
+    body{
+      font-family:'Space Grotesk',sans-serif;
+      background:var(--bg);
+      color:var(--ink);
+      line-height:1.7;
+    }
+
+    a{text-decoration:none;color:inherit}
+
+    /* ===== GLOBAL ===== */
+    section{max-width:1100px;margin:auto;padding:110px 20px}
+    h2{font-size:2rem;margin-bottom:40px}
+    h2 span{color:var(--accent)}
+
+    /* ===== NAV ===== */
+    header{
+      position:fixed;
+      top:0;left:0;width:100%;
+      background:#ffffffcc;
+      backdrop-filter:blur(10px);
+      border-bottom:1px solid var(--line);
+      z-index:999
+    }
+
+    nav{
+      max-width:1100px;margin:auto;
+      padding:18px 20px;
+      display:flex;justify-content:space-between;align-items:center
+    }
+
+    .logo{font-weight:700;font-size:1.1rem}
+
+    nav ul{display:flex;gap:26px;list-style:none}
+    nav ul a{font-size:.9rem;color:var(--muted)}
+    nav ul a:hover{color:var(--accent)}
+
+    /* ===== HERO ===== */
+    #hero{
+      min-height:100vh;
+      display:grid;align-items:center;
+    }
+
+    .hero{
+      display:grid;grid-template-columns:1.3fr .7fr;gap:60px;align-items:center
+    }
+
+    .hero h1{
+      font-size:3.2rem;line-height:1.1
+    }
+
+    .hero p{margin:25px 0;color:var(--muted);max-width:520px}
+
+    .pill{
+      display:inline-block;
+      padding:6px 14px;
+      border-radius:999px;
+      background:var(--accent-soft);
+      color:var(--accent);
+      font-size:.8rem;
+      margin-bottom:20px
+    }
+
+    .actions a{
+      display:inline-block;
+      margin-right:14px;
+      padding:12px 26px;
+      border-radius:10px;
+      font-size:.9rem;
+      font-weight:500
+    }
+
+    .primary{background:var(--accent);color:#fff}
+    .ghost{border:1px solid var(--line)}
+
+    .hero img{
+      width:260px;height:260px;
+      border-radius:22px;
+      object-fit:cover;
+      box-shadow:0 30px 70px rgba(0,0,0,.15)
+    }
+
+    /* ===== ABOUT ===== */
+    .about-grid{display:grid;grid-template-columns:1fr 1fr;gap:50px}
+
+    .about-box{
+      border:1px solid var(--line);
+      padding:30px;border-radius:18px
+    }
+
+    /* ===== TIMELINE ===== */
+    .timeline{border-left:2px solid var(--line);padding-left:30px}
+
+    .step{margin-bottom:40px}
+    .step h3{font-size:1rem}
+    .step span{font-size:.8rem;color:var(--muted)}
+
+    /* ===== PROJECTS ===== */
+    .projects{
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(260px,1fr));
+      gap:30px
+    }
+
+    .project{
+      padding:26px;
+      border-radius:18px;
+      border:1px solid var(--line);
+      background:#fff;
+      transition:.3s
+    }
+
+    .project:hover{transform:translateY(-6px);border-color:var(--accent)}
+
+    .project h4{margin-bottom:8px}
+    .project p{font-size:.9rem;color:var(--muted)}
+
+    /* ===== SKILLS ===== */
+    .skills{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:20px}
+
+    .skill{
+      padding:18px;border-radius:14px;
+      background:var(--accent-soft);
+      font-family:'JetBrains Mono',monospace;
+      font-size:.85rem
+    }
+
+    /* ===== CONTACT ===== */
+    .contact-box{
+      display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:30px
+    }
+
+    .contact-card{
+      padding:26px;border-radius:18px;
+      border:1px solid var(--line)
+    }
+
+    footer{
+      text-align:center;
+      padding:50px 20px;
+      border-top:1px solid var(--line);
+      color:var(--muted)
+    }
+
+    @media(max-width:900px){
+      .hero,.about-grid{grid-template-columns:1fr;text-align:center}
+      .hero p{margin:auto}
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <nav>
+    <div class="logo">Prerak Raja</div>
+    <ul>
+      <li><a href="#hero">Home</a></li>
+      <li><a href="#about">About</a></li>
+      <li><a href="#experience">Experience</a></li>
+      <li><a href="#projects">Projects</a></li>
+      <li><a href="#skills">Skills</a></li>
+      <li><a href="#contact">Contact</a></li>
+    </ul>
+  </nav>
+</header>
+
+<section id="hero">
+  <div class="hero">
+    <div>
+      <span class="pill">Software & AI Engineer</span>
+      <h1>Building reliable systems<br>and intelligent software.</h1>
+      <p>
+        Focused on backend engineering, distributed systems, and applied machine learning. I enjoy designing clean architectures and solving high‑impact problems.
+      </p>
+      <div class="actions">
+        <a href="#projects" class="primary">View Projects</a>
+        <a href="#contact" class="ghost">Contact</a>
+      </div>
+    </div>
+    <img src="assets/img/profile.jpeg" alt="Prerak Raja">
+  </div>
+</section>
+
+<section id="about">
+  <h2><span>About</span> Me</h2>
+  <div class="about-grid">
+    <div class="about-box">
+      <p>
+        I am a software engineer with a strong interest in artificial intelligence and large‑scale backend systems. My experience spans academic research, production engineering, and cloud‑native development.
+      </p>
+    </div>
+    <div class="about-box">
+      <p><b>Location:</b> Tempe, AZ</p>
+      <p><b>Email:</b> rajaprerak@gmail.com</p>
+      <p><b>Phone:</b> +1 480‑401‑8112</p>
+    </div>
+  </div>
+</section>
+
+<section id="experience">
+  <h2><span>Experience</span></h2>
+  <div class="timeline">
+    <div class="step">
+      <h3>Software Engineer – Arizona State University</h3>
+      <span>2021 – Present</span>
+      <p>Managed large‑scale academic infrastructure, Linux servers, and automation workflows.</p>
+    </div>
+    <div class="step">
+      <h3>Backend Developer – Augmenify</h3>
+      <span>2020</span>
+      <p>Designed serverless APIs using AWS Lambda, API Gateway, and Flask.</p>
+    </div>
+    <div class="step">
+      <h3>Programmer Analyst – Meditab</h3>
+      <span>2018</span>
+      <p>Worked on deep learning pipelines, REST APIs, and computer vision systems.</p>
+    </div>
+  </div>
+</section>
+
+<section id="projects">
+  <h2><span>Projects</span></h2>
+  <div class="projects">
+    <div class="project"><h4>Twitter Analysis</h4><p>NLP‑based sentiment and trend analysis platform.</p></div>
+    <div class="project"><h4>Image Recognition as a Service</h4><p>Cloud‑based ML inference system.</p></div>
+    <div class="project"><h4>Video Description Generator</h4><p>Seq2Seq deep learning model for video captions.</p></div>
+    <div class="project"><h4>Resume Section Classifier</h4><p>NLP classifier for automated resume parsing.</p></div>
+  </div>
+</section>
+
+<section id="skills">
+  <h2><span>Skills</span></h2>
+  <div class="skills">
+    <div class="skill">Python</div>
+    <div class="skill">Java</div>
+    <div class="skill">Flask / Django</div>
+    <div class="skill">AWS / GCP</div>
+    <div class="skill">Machine Learning</div>
+    <div class="skill">Computer Vision</div>
+  </div>
+</section>
+
+<section id="contact">
+  <h2><span>Contact</span></h2>
+  <div class="contact-box">
+    <div class="contact-card"><b>Email</b><p>rajaprerak@gmail.com</p></div>
+    <div class="contact-card"><b>GitHub</b><p>github.com/rajaprerak</p></div>
+    <div class="contact-card"><b>LinkedIn</b><p>linkedin.com/in/rajaprerak</p></div>
+  </div>
+</section>
+
+<footer>
+  © 2026 Prerak Raja · Built with clean HTML & CSS
+</footer>
+
+</body>
+</html>

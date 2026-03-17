@@ -1,0 +1,52 @@
+# Dependencies
+node_modules/
+
+# Next.js
+.next/
+out/
+
+# Production build output (if used)
+dist/
+build/
+
+# Caches
+.turbo/
+.swc/
+.eslintcache
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+*.log
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# Prisma (keep schema + migrations, ignore local db files)
+prisma/*.db
+prisma/*.db-journal
+prisma/*.sqlite
+prisma/*.sqlite-journal
+
+# TypeScript
+*.tsbuildinfo
+
+# Editor / OS
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Project-specific
+.qodo/
+build-error.log
+node_modules
