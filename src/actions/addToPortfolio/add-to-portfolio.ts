@@ -74,63 +74,37 @@ export async function addToPortfolio(project : Project) {
       return { success: false, error: "Project already exists" };
     };
 
-    const prompt = `I have this html file ${user.htmlFiles} and if the ${project.name} is not in the projects sestion of my html file, add ${project} to the html file and return the updated html file. with ${project} in the html file. add this inside my projects section of the html file. having name ${project.name} and description ${project.description} and link ${project.url} and ${project.language} and update the html file. and please don't update change anything previously in the html file. just add ${project } to the html file in projects section.  
-    4. PROJECTS SECTION (min-height: 100vh) WITH BENTO GRID:
-    <section id="projects" class="min-h-screen py-20 bg-white dark:bg-black">
-      <div class="container mx-auto px-4 py-16">
-        <h2 class="text-3xl md:text-4xl font-bold text-center mb-16 text-black dark:text-white">
-          My <span class="text-gray-700 dark:text-gray-300">Projects</span>
-        </h2>
-        
-        <!-- Bento Grid Layout -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <!-- Featured Project (spans 2 columns on desktop) -->
-          <div class="md:col-span-2 lg:col-span-2 group">
-            <div class="h-full overflow-hidden rounded-xl bg-gray-50 dark:bg-gray-900 shadow-lg hover:shadow-xl transition duration-300 transform hover:-translate-y-1">
-              <div class="relative h-64 overflow-hidden">
-                <img src="[project-image]" alt="[Project Name]" class="w-full z-30 h-full object-cover transition duration-500 group-hover:scale-105" />
-                <div class="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent opacity-0 group-hover:opacity-100 transition duration-300 flex items-end">
-                  <div class="p-4">
-                    <div class="flex gap-3">
-                      <a href="#" class="px-3 py-1 bg-black text-white rounded-full text-sm hover:bg-gray-800 transition">Live Demo</a>
-                      <a href="#" class="px-3 py-1 bg-gray-700 text-white rounded-full text-sm hover:bg-gray-600 transition">GitHub</a>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div class="p-6">
-                <h3 class="text-xl font-bold text-gray-600 dark:text-gray-400 mb-2">[Project Name]</h3>
-                <p class="text-gray-600 dark:text-gray-400 mb-4">[Project description - keep it concise but informative]</p>
-                <div class="flex flex-wrap gap-2">
-                  <span class="px-2 py-1 bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-200 rounded text-xs">
-                    [Technology 1]
-                  </span>
-                  <!-- Repeat for other technologies -->
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          <!-- Regular Project Cards -->
-          <div class="group">
-            <div class="h-full overflow-hidden rounded-xl bg-gray-50 dark:bg-gray-900 shadow-lg hover:shadow-xl transition duration-300 transform hover:-translate-y-1">
-              <!-- Same structure as featured project but different content -->
-            </div>
-          </div>
-          
-          <!-- Repeat for other projects -->
-        </div>
-      </div>
-    </section>
-    add this section to the html file. with details of ${project} and add it to the html file. and please don't update change anything previously in the html file. just add ${project } to the html file in projects section.
+    const prompt = `I have this html file ${user.htmlFiles}.
+If the project '${project.name}' is not in the projects section of my html file, add the following project data to the HTML file:
+${JSON.stringify(project)}
+
+Please append this new project into the existing projects section of the HTML file. 
+Keep the exact same layout and styling already present in the HTML file, just add the new project card.
+Do NOT update or change anything previously in the html file. Just add the new project to the html file in the projects section.
+
+CRITICAL INSTRUCTION: You must return ONLY the completely updated RAW HTML code. DO NOT include any conversational text, explanations, or markdown formatting (no \`\`\`html blocks). Start directly with <!DOCTYPE html> or <html> and end with </html>.
     `;
 
-    const updatedHTML = await callGroqAPI([
-      {
-        role: 'user',
-        content: prompt,
-      },
-    ], 0.7); // Extract AI-generated HTML
+    const systemPrompt = "You are an automated code editor. Your only function is to output raw, valid HTML. Never include conversational text, pleasantries, or markdown blocks. Just output the code.";
+
+    let updatedHTML = await callGroqAPI([
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: prompt }
+    ], 0.2); // Lower temperature for more deterministic output
+
+    // Fallback: If AI still outputs markdown HTML block, strip it. If there is conversational text before <!DOCTYPE html> or <html>, trim it.
+    const htmlBlockRegex = /```(?:html)?\s*([\s\S]*?)```/i;
+    const match = updatedHTML.match(htmlBlockRegex);
+    if (match) {
+      updatedHTML = match[1].trim();
+    } else {
+      // Find where HTML starts to strip leading conversational text
+      const htmlStartIndex = updatedHTML.search(/<!DOCTYPE html>|<html/i);
+      if (htmlStartIndex !== -1) {
+        updatedHTML = updatedHTML.substring(htmlStartIndex);
+      }
+    }
+    
     console.log("RESPONSED text", updatedHTML);
 
     // Store repositories in database

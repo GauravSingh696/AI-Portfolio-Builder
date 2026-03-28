@@ -68,7 +68,7 @@ const router = useRouter();
                   View Code
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
+              <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col bg-white dark:bg-zinc-950">
                 <DialogHeader>
                   <DialogTitle>Portfolio HTML Code</DialogTitle>
                   <DialogDescription>
@@ -76,7 +76,7 @@ const router = useRouter();
                   </DialogDescription>
                 </DialogHeader>
                 <div className="flex-1 overflow-auto relative">
-                  <pre className="p-4 bg-muted rounded-md text-sm overflow-x-auto">
+                  <pre className="p-4 bg-slate-100 dark:bg-zinc-900 border rounded-md text-sm overflow-x-auto">
                     <code>{portfolioHTML}</code>
                   </pre>
                   <Button

@@ -12,7 +12,7 @@ import { Project } from "@/lib/types"
 
 export default function Dashboard() {
 const [projects, setProjects] = useState<Project[]>([]) // Initialize projects state with an empty array
-//   const [searchQuery, setSearchQuery] = useState("")
+  const [isNavigating, setIsNavigating] = useState<string | null>(null);
   const router = useRouter();
 console.log(projects);
   // Mock projects data
@@ -95,14 +95,17 @@ console.log(projects);
   // Filter projects based on search query and active ta
 
 
+  const handleNavigation = (path: string, id: string) => {
+    setIsNavigating(id);
+    router.push(path);
+  }
+
   const handleGeneratePortfolio = () => {
-    // In a real app, this would trigger the portfolio generation process
-    router.push('/generate-portfolio') // Assuming you have a route for the portfolio generation
+    handleNavigation('/generate-portfolio', 'generate');
   }
 
   const handleViewPortfolio = () => {
-    // In a real app, this would navigate to the portfolio view
-    router.push('/portfolio') // Assuming you have a route for the portfolio view
+    handleNavigation('/portfolio', 'portfolio');
   }
 
   return (
@@ -113,15 +116,15 @@ console.log(projects);
           <p className="text-muted-foreground mt-1">Manage your projects and portfolio</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="default" onClick={() => router.push('/projects')}>
+          <Button variant="default" onClick={() => handleNavigation('/projects', 'projects')} loading={isNavigating === 'projects'} disabled={isNavigating !== null}>
             <Grid className="mr-2 h-4 w-4" />
             View Projects
           </Button>
-          <Button variant="outline" onClick={handleGeneratePortfolio}>
+          <Button variant="outline" onClick={handleGeneratePortfolio} loading={isNavigating === 'generate'} disabled={isNavigating !== null}>
             <FileText className="mr-2 h-4 w-4" />
             Generate Portfolio
           </Button>
-          <Button variant="secondary" onClick={handleViewPortfolio}>
+          <Button variant="secondary" onClick={handleViewPortfolio} loading={isNavigating === 'portfolio'} disabled={isNavigating !== null}>
             <User className="mr-2 h-4 w-4" />
             View Portfolio
           </Button>

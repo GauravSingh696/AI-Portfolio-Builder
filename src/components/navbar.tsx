@@ -34,10 +34,17 @@ export function Navbar() {
   const pathname = usePathname();
   const { data: session } = useSession();
 
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
   const handleSignOut = async () => {
-    await signOut({ redirect: false });
-    toast.success("Logged out successfully");
-    router.push('/');
+    try {
+      setIsLoggingOut(true);
+      await signOut({ redirect: false });
+      toast.success("Logged out successfully");
+      router.push('/');
+    } finally {
+      setIsLoggingOut(false);
+    }
   }
 
   // Get user initials for avatar fallback
@@ -226,7 +233,7 @@ export function Navbar() {
                               Generate Portfolio
                             </Button>
                           </Link>
-                          <Button variant="destructive" className="w-full justify-start mt-2" onClick={() => { handleSignOut(); setMobileMenuOpen(false); }}>
+                          <Button variant="destructive" className="w-full justify-start mt-2" loading={isLoggingOut} disabled={isLoggingOut} onClick={() => { handleSignOut(); setMobileMenuOpen(false); }}>
                             <LogOut className="mr-2 h-4 w-4" />
                             Log out
                           </Button>

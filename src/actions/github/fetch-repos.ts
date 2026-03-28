@@ -41,12 +41,16 @@ export async function fetchGithubRepos(): Promise<FetchReposResult> {
     // Fetch repositories from GitHub API
     const response = await fetch("https://api.github.com/user/repos", {
       headers: {
-        Authorization: `token ${githubAccount.access_token}`,
+        Authorization: `Bearer ${githubAccount.access_token}`,
         Accept: "application/vnd.github.v3+json",
-        "User-Agent": "web-builder"
+        "User-Agent": "AI-Portfolio-Builder"
       },
       cache: "no-store"
     });
+    if (response.status === 401) {
+      console.warn("GitHub API Unauthorized. User might need to re-authenticate.");
+      return { success: false, error: "GitHub token expired or invalid. Please sign out and sign in again." };
+    }
 
     if (!response.ok) {
       throw new Error(`GitHub API error: ${response.statusText}`);
