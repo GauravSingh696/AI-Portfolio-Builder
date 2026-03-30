@@ -4,7 +4,7 @@ AI Portfolio Builder is an AI-powered platform that helps developers, designers,
 
 View the [demo here](https://aiportfoliobuild.netlify.app/).
 
-![Portfolio](public/images/cover.png)
+![Portfolio](public/cover.png)
 
 
 ## 🚀 What It Does & Features
