@@ -2,6 +2,10 @@
 
 AI Portfolio Builder is an AI-powered platform that helps developers, designers, and freelancers create and manage personal portfolios effortlessly. Built with Next.js and powered by generative AI, it automates the portfolio-building process—giving you pixel-perfect, completely customized template-driven portfolios with zero coding required.
 
+View the [demo here](https://aiportfoliobuild.netlify.app/).
+
+![Portfolio](public/images/cover.png)
+
 
 ## 🚀 What It Does & Features
 
