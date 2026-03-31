@@ -57,21 +57,37 @@ const generateHTMLHandler = async (resumeText: string, projects: Project[], sess
     }
 
     // AI Prompt - Generate Full HTML Portfolio
-    const prompt = ` You are an expert front-end developer specializing in creating pixel-perfect, responsive websites with Tailwind CSS. make sure not to include any other text or description about generation just provide html and tailwind code Create a professional portfolio website from this resume
+const prompt = ` You are an expert front-end developer specializing in creating pixel-perfect, responsive websites with Tailwind CSS. make sure not to include any other text or description about generation just provide html and tailwind code Create a professional portfolio website from this resume
 
 ✅ Generate only HTML and Tailwind CSS. No explanation or extra text.
+<script src="https://cdn.tailwindcss.com"></script> "apply this script to style the html page.
+
+⚠️ NAVBAR BACKGROUND & TEXT RULE:
+The navbar MUST NOT apply any background color.
+Use transparent background only.
+Do not use classes like:
+bg-white
+bg-black
+bg-white/80
+dark:bg-black/90
+bg-gray-*
+bg-opacity-*
+Crucially, the text color for the navbar links, icons, and the "[Your Name]" logo MUST perfectly match the exact text color theme or gradient used in the Hero section's main heading ("Hi, I'm [Name]"). Ensure this thematic text color is applied to the navbar so they match.
+
 ✅ Build a professional portfolio website from this resume:
 
 txt
 Copy
 Edit
 ${resumeText}
+
 📌 For projects, check if the project name and description exist in this list:
 
 js
 Copy
 Edit
 ${projects.map(project => project.name).join(', ')}
+
 If not found, extract from the resume.
 
 Use this project list for details:
@@ -103,7 +119,7 @@ Navbar links MUST scroll to sections:
 - "Projects" links to id="projects"
 - "Contact" links to id="contact"
 Ensure each corresponding section has the correct id so clicking nav links scrolls the page.
-💡 Sections to include: Navbar (fixed top), Hero (100vh), About, Experience, Education & Skills, Projects (bento-style grid), Contact form`}
+💡 Sections to include: Navbar (fixed top), Hero (100vh), About, Experience, Education & Skills, Projects (grid layout with equal size cards), Contact form`}
 
 and only return the HTML code. in thre string format.
 
@@ -114,7 +130,7 @@ Copy
 Edit
 ${templateStructure ? templateStructure : `  LAYOUT STRUCTURE:
     1. NAVBAR (height: 4rem) fixed at top:
-        <header class="fixed w-full bg-white/80 dark:bg-black/90 backdrop-blur-md z-50 shadow-sm">
+        <header class="fixed w-full backdrop-blur-md z-50 shadow-sm">
           <div class="container mx-auto px-4 py-3 flex justify-between items-center">
           <!--Logo -->
             <div>
@@ -123,7 +139,7 @@ ${templateStructure ? templateStructure : `  LAYOUT STRUCTURE:
 
               < !--Desktop Navigation-- >
                 <nav class="hidden md:flex space-x-8" >
-                  <a href="#home" class="text-gray-800 dark:text-gray-100 hover:text-black dark:hover:text-white transition" > Home </a>
+                  <a href="#home" class="hover:opacity-70 transition" > Home </a>
                     < !--Other nav items-- >
                       </nav>
 
@@ -138,7 +154,7 @@ ${templateStructure ? templateStructure : `  LAYOUT STRUCTURE:
                                 <!--Mobile nav items-- >
                                   </div>
                                   </header>
-
+                                  
     2. HERO SECTION(height: 100vh):
     <section id="home" class="min-h-screen pt-20 flex items-center bg-white dark:bg-black" >
       <div class="container mx-auto px-4 py-16" >
@@ -280,53 +296,35 @@ ${templateStructure ? templateStructure : `  LAYOUT STRUCTURE:
                       </div>
                       </div>
                       </section>
-    4. PROJECTS SECTION(min - height: 100vh) WITH BENTO GRID:
+    4. PROJECTS SECTION(min - height: 100vh) WITH EQUAL GRID:
     <section id="projects" class="min-h-screen py-20 bg-white dark:bg-black" >
       <div class="container mx-auto px-4 py-16" >
         <h2 class="text-3xl md:text-4xl font-bold text-center mb-16 text-black dark:text-white" >
           My < span class="text-gray-700 dark:text-gray-300" > Projects </span>
             </h2>
 
-            < !--Bento Grid Layout-- >
+            < !--Grid Layout-- >
               <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" >
-                <!--Featured Project(spans 2 columns on desktop)-- >
-                  <div class="md:col-span-2 lg:col-span-2 group" >
-                    <div class="h-full overflow-hidden rounded-xl bg-gray-50 dark:bg-gray-900 shadow-lg hover:shadow-xl transition duration-300 transform hover:-translate-y-1" >
-                      <div class="relative h-64 overflow-hidden" >
-                        <img src="[project-image]" alt = "[Project Name]" class="w-full z-30 h-full object-cover transition duration-500 group-hover:scale-105" />
-                          <div class="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent opacity-0 group-hover:opacity-100 transition duration-300 flex items-end" >
-                            <div class="p-4" >
-                              <div class="flex gap-3" >
-                                <a href="#" class="px-3 py-1 bg-black text-white rounded-full text-sm hover:bg-gray-800 transition" > Live Demo </a>
-                                  < a href = "#" class="px-3 py-1 bg-gray-700 text-white rounded-full text-sm hover:bg-gray-600 transition" > GitHub </a>
-                                    </div>
-                                    </div>
-                                    </div>
-                                    </div>
-                                    < div class="p-6" >
-                                      <h3 class="text-xl font-bold text-gray-600 dark:text-gray-400 mb-2" > [Project Name] </h3>
-                                        < p class="text-gray-600 dark:text-gray-400 mb-4" > [Project description - keep it concise but informative] </p>
-                                          < div class="flex flex-wrap gap-2" >
-                                            <span class="px-2 py-1 bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-200 rounded text-xs" >
-                                              [Technology 1]
-                                              </span>
-                                              < !--Repeat for other technologies-- >
-                                                </div>
-                                                </div>
-                                                </div>
-                                                </div>
+                <!--Project Card-- >
+                  <div class="group flex flex-col h-full" >
+                    <div class="flex-1 overflow-hidden rounded-xl bg-gray-50 dark:bg-gray-900 shadow-lg hover:shadow-xl transition duration-300 transform hover:-translate-y-1 flex flex-col" >
+                      <div class="p-6 flex flex-col flex-grow" >
+                        <h3 class="text-xl font-bold text-gray-800 dark:text-white mb-2" > [Project Name] </h3>
+                          < p class="text-gray-600 dark:text-gray-400 mb-6 flex-grow" > [Project description - keep it concise but informative] </p>
+                            < div class="flex flex-wrap gap-2 mt-auto" >
+                              <span class="px-3 py-1 bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200 rounded-md text-sm font-medium inline-block w-auto" >
+                                [Technology 1]
+                                </span>
+                                < !--Repeat for other technologies-- >
+                                  </div>
+                                  </div>
+                                  </div>
+                                  </div>
 
-                                                < !--Regular Project Cards-- >
-                                                  <div class="group" >
-                                                    <div class="h-full overflow-hidden rounded-xl bg-gray-50 dark:bg-gray-900 shadow-lg hover:shadow-xl transition duration-300 transform hover:-translate-y-1" >
-                                                      <!--Same structure as featured project but different content-- >
-                                                        </div>
-                                                        </div>
-
-                                                        < !--Repeat for other projects-- >
-                                                          </div>
-                                                          </div>
-                                                          </section>
+                                  < !--Repeat for other projects-- >
+                                    </div>
+                                    </div>
+                                    </section>
     
     5. CONTACT SECTION(min - height: 100vh):
     <section id="contact" class="min-h-screen py-20 bg-gray-50 dark:bg-gray-900" >
