@@ -57,7 +57,7 @@ const generateHTMLHandler = async (resumeText: string, projects: Project[], sess
     }
 
     // AI Prompt - Generate Full HTML Portfolio
-const prompt = ` You are an expert front-end developer specializing in creating pixel-perfect, responsive websites with Tailwind CSS. make sure not to include any other text or description about generation just provide html and tailwind code Create a professional portfolio website from this resume
+    const prompt = ` You are an expert front-end developer specializing in creating pixel-perfect, responsive websites with Tailwind CSS. make sure not to include any other text or description about generation just provide html and tailwind code Create a professional portfolio website from this resume
 
 ✅ Generate only HTML and Tailwind CSS. No explanation or extra text.
 <script src="https://cdn.tailwindcss.com"></script> "apply this script to style the html page.
@@ -180,7 +180,7 @@ ${templateStructure ? templateStructure : `  LAYOUT STRUCTURE:
 
                               < !--Image / Visual(2 / 5 width on desktop)-- >
                               <div class="lg:col-span-2 flex justify-center" >
-                                <div class="relative w-64 h-64 md:w-80 md:h-80 rounded-full overflow-hidden border-4 border-white dark:border-gray-800 shadow-xl" >
+                                <div class="relative w-64 h-64 md:w-80 md:h-80 rounded-full overflow-hidden border-4 border-white" >
                                   <img src="[your-image-url]" alt = "[Your Name]" class="w-full h-full object-cover" />
                                     </div>
                                     </div>

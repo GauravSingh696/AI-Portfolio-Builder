@@ -20,7 +20,7 @@ import Image from "next/image"
 import { signOut, useSession } from "next-auth/react"
 import { toast } from "sonner"
 import { useRouter, usePathname } from "next/navigation"
-import { LayoutDashboard, LogOut, FileText, User } from "lucide-react"
+import { LayoutDashboard, LogOut, FileText } from "lucide-react"
 const navLinks = [
   { href: "#features", label: "Features" },
   { href: "#how-it-works", label: "How It Works" },
